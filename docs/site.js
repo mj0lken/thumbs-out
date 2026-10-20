@@ -1,6 +1,10 @@
 // thumbs-out landing page: copy buttons and the scroll tour (laptop opens → desktop → panel tour).
 (() => {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Only Apple's system fonts have the Apple logo glyph used in the mock menu bar.
+  if (/mac|iphone|ipad/i.test(navigator.userAgentData?.platform || navigator.platform || "")) {
+    document.documentElement.classList.add("apple-os");
+  }
 
   document.querySelectorAll("button[data-copy]").forEach((button) => {
     button.addEventListener("click", async () => {

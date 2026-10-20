@@ -110,9 +110,12 @@ body.story-playing .site-header { transform: translateY(-100%); opacity: 0; }
 .menubar { grid-column: 1 / -1; display: flex; align-items: center; gap: 1.1rem; height: 30px; padding: 0 1rem; margin: 0 calc(var(--gutter) * -1) 2rem; background: rgba(255, 255, 255, 0.08); font-size: 0.82rem; color: rgba(255, 255, 255, 0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
 .menubar strong { font-weight: 700; }
 .mb-apple { width: 12px; height: 14px; background: currentColor; border-radius: 45% 45% 50% 50%; }
+/* Apple devices draw the Apple menu with the system font's own glyph; elsewhere it stays a plain shape. */
+.apple-os .mb-apple { width: auto; height: auto; background: none; border-radius: 0; font-family: -apple-system, system-ui, sans-serif; font-size: 1.05rem; line-height: 1; }
+.apple-os .mb-apple::before { content: "\F8FF"; }
 .mb-spacer { flex: 1; }
 /* The stage is the zoomed-in screen, so its menu bar keeps the camera notch. */
-.mb-notch { position: absolute; left: 50%; top: 0; width: 170px; height: 100%; transform: translateX(-50%); background: #000; border-radius: 0 0 12px 12px; }
+.mb-notch { position: absolute; left: 50%; top: 0; width: clamp(64px, 9.5vw, 190px); height: 100%; transform: translateX(-50%); background: #000; border-radius: 0 0 12px 12px; }
 .mb-icon { display: grid; place-items: center; width: 30px; height: 22px; border-radius: 6px; color: #fff; transition: background var(--duration-fast); }
 .mb-icon svg { width: 16px; height: 16px; }
 .mb-wifi { width: 16px; height: 16px; }
@@ -276,10 +279,17 @@ body.story-playing .site-header { transform: translateY(-100%); opacity: 0; }
   .install-grid { grid-template-columns: minmax(0, 1fr); }
   .desktop .panel-wrap { max-width: 340px; margin: 0 auto; }
 }
+/* Keep the menus clear of the notch. */
+@media (max-width: 1180px) {
+  .mb-extra { display: none; }
+}
 @media (max-width: 760px) {
   .nav-links { display: none; }
   .nav-github { margin-left: auto; }
   .mb-menu { display: none; }
+  /* Room for the app name and the thumb on either side of the notch. */
+  .menubar { gap: 0.7rem; }
+  .mb-wifi { display: none; }
   .brew code { font-size: 0.75rem; }
 }
 

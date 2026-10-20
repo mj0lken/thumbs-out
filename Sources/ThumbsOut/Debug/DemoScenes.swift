@@ -43,7 +43,7 @@ struct DemoCanvas: View {
     private var menuBar: some View {
         HStack(spacing: 18) {
             Image(systemName: "apple.logo").font(.system(size: 13, weight: .semibold))
-            Text("Cursor").font(.system(size: 13, weight: .bold))
+            Text("Thumbs out").font(.system(size: 13, weight: .bold))
             ForEach(["File", "Edit", "View", "Go", "Window", "Help"], id: \.self) {
                 Text($0).font(.system(size: 13))
             }

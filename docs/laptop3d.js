@@ -15,6 +15,11 @@ const DISPLAY_W = W - 2 * DISPLAY.side;
 const DISPLAY_D = D - DISPLAY.top - DISPLAY.chin;
 const FOV = 28;
 const LAPTOP_RADIUS = 30; // contains the open laptop around any camera target
+// Apple's system fonts carry the Apple logo at U+F8FF; elsewhere the glyph doesn't exist, so the
+// lid goes without and the menu bar shows a neutral dot.
+const APPLE_OS = /mac|iphone|ipad/i.test(navigator.userAgentData?.platform || navigator.platform || "");
+const APPLE_GLYPH = "\uF8FF";
+const SYSTEM_FONT = "-apple-system, system-ui, sans-serif";
 
 // The outlined thumbs-up (same paths as the site's SVG and ThumbMark.swift, 24-unit grid).
 const CUFF = "M3.2 10.2h1.6a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3.2a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z";
@@ -193,6 +198,17 @@ function buildLaptop(renderer, environment) {
   sticker.position.set(6.6, LID_T + 0.03, D * 0.38);
   pivot.add(sticker);
 
+  // The polished logo in the middle of the lid. Upright as the camera sees the closed laptop
+  // (a real one reads upright from behind; upside down here it just looked like a blob).
+  if (APPLE_OS) {
+    const logo = new THREE.Mesh(
+      new THREE.PlaneGeometry(5.2, 5.2).rotateX(-Math.PI / 2),
+      overlay(new THREE.MeshPhysicalMaterial({ map: canvasTexture(drawLogo, 512, 512, anisotropy), transparent: true, color: 0xa9adb3, metalness: 1, roughness: 0.1 })),
+    );
+    logo.position.set(0, LID_T + 0.03, D / 2);
+    pivot.add(logo);
+  }
+
   // A soft contact shadow under the base.
   const shadow = new THREE.Mesh(
     new THREE.PlaneGeometry(W * 1.5, D * 1.6).rotateX(-Math.PI / 2),
@@ -288,14 +304,28 @@ function drawScreen(ctx, width, height) {
   ctx.fillStyle = "rgba(255,255,255,0.1)";
   ctx.fillRect(0, 0, width, bar);
   ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.font = `600 ${bar * 0.5}px -apple-system, system-ui, sans-serif`;
   ctx.textBaseline = "middle";
-  ctx.beginPath();
-  ctx.ellipse(width * 0.02, bar / 2, bar * 0.2, bar * 0.24, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillText("Cursor", width * 0.035, bar / 2);
-  ctx.font = `400 ${bar * 0.5}px -apple-system, system-ui, sans-serif`;
-  ["File", "Edit", "View", "Window"].forEach((label, index) => ctx.fillText(label, width * (0.085 + index * 0.035), bar / 2));
+
+  // The Apple menu, the app's name in bold, then its menus, as in a real macOS menu bar.
+  let x = width * 0.014;
+  if (APPLE_OS) {
+    ctx.font = `${bar * 0.6}px ${SYSTEM_FONT}`;
+    ctx.fillText(APPLE_GLYPH, x, bar / 2);
+    x += ctx.measureText(APPLE_GLYPH).width;
+  } else {
+    ctx.beginPath();
+    ctx.ellipse(x + bar * 0.2, bar / 2, bar * 0.2, bar * 0.24, 0, 0, Math.PI * 2);
+    ctx.fill();
+    x += bar * 0.4;
+  }
+  const gap = bar * 0.75;
+  [["Thumbs out", 700], ...["File", "Edit", "View", "Go", "Window", "Help"].map((label) => [label, 400])].forEach(([label, weight]) => {
+    x += gap;
+    ctx.font = `${weight} ${bar * 0.5}px ${SYSTEM_FONT}`;
+    ctx.fillText(label, x, bar / 2);
+    x += ctx.measureText(label).width;
+  });
+  ctx.font = `400 ${bar * 0.5}px ${SYSTEM_FONT}`;
   ctx.fillText("Tue 15:42", width * 0.93, bar / 2);
 
   // The thumb in the menu bar.
@@ -413,6 +443,20 @@ function drawSticker(ctx, width) {
   ctx.stroke(new Path2D(CUFF));
   ctx.stroke(new Path2D(HAND));
   ctx.restore();
+}
+
+/** The Apple logo from the system font, centred; the material's colour and shine do the rest. */
+function drawLogo(ctx, width) {
+  ctx.fillStyle = "#fff";
+  ctx.font = `${width * 0.9}px ${SYSTEM_FONT}`;
+  const box = ctx.measureText(APPLE_GLYPH);
+  const glyphWidth = box.actualBoundingBoxLeft + box.actualBoundingBoxRight;
+  const glyphHeight = box.actualBoundingBoxAscent + box.actualBoundingBoxDescent;
+  ctx.fillText(
+    APPLE_GLYPH,
+    (width - glyphWidth) / 2 + box.actualBoundingBoxLeft,
+    (width - glyphHeight) / 2 + box.actualBoundingBoxAscent,
+  );
 }
 
 function drawShadow(ctx, width, height) {

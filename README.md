@@ -1,10 +1,41 @@
-# thumbs-out
+# 👍 thumbs-out
 
-A small macOS menu bar app that keeps your Mac awake while AI coding agents are running commands,
-like Amphetamine but automatic. Named after the people walking around with half-open MacBooks so
-their agents keep running.
+**Keep your Mac awake while your AI agents work.** No more walking around with a half-open MacBook
+so Claude Code, Codex, Cursor or Antigravity can finish the job.
 
-What it watches, in three tiers:
+thumbs-out is a small macOS menu bar app that notices when coding agents are running commands and
+keeps the Mac awake until they're done. Think Amphetamine, but automatic. It can even keep working
+with the lid closed.
+
+<p align="center">
+  <img src="docs/images/menu-light.png" width="300" alt="thumbs-out menu bar panel in light mode">
+  &nbsp;&nbsp;
+  <img src="docs/images/menu-dark.png" width="300" alt="thumbs-out menu bar panel in dark mode">
+</p>
+
+**[Download for Apple Silicon](https://github.com/mj0lken/thumbs-out/releases/latest)** · macOS 15
+or later · free and open source (MIT)
+
+## Install
+
+1. Download `thumbs-out-…-arm64.zip` from the
+   [latest release](https://github.com/mj0lken/thumbs-out/releases/latest), unzip it, and drag
+   **thumbs-out.app** to **Applications**.
+2. Open it. The app isn't signed with a paid Apple Developer ID yet, so macOS stops it the first
+   time: click **Done**, open **System Settings › Privacy & Security**, scroll down and click
+   **Open Anyway** next to thumbs-out. You only do this once.
+3. The welcome window walks you through which agents were found, the grace period, lid-closed mode
+   and launch at login.
+
+Prefer to build it yourself? See [Build and run](#build-and-run).
+
+<p align="center">
+  <img src="docs/images/onboarding-agents.png" width="420" alt="Onboarding: agents found on this Mac">
+  &nbsp;
+  <img src="docs/images/onboarding-lid.png" width="420" alt="Onboarding: close the lid, keep working">
+</p>
+
+## What it watches
 
 | Tier | Entries | Default |
 |------|---------|---------|
@@ -79,6 +110,8 @@ put it in a bag with poor airflow.
 
 ## Settings
 
+<img src="docs/images/settings.png" width="420" align="right" alt="thumbs-out settings">
+
 One scrolling page: **Agents** (found/covered, watch toggles, scan again), **Keeping Awake**
 (master switch, grace period meter, display), **Lid Closed** (switch, battery threshold, removal),
 **Time Kept Awake** (today, 7 and 30 days, all time, longest stretch, reset), **Detection** (poll
@@ -86,6 +119,8 @@ interval, ignored processes) and **General** (launch at login, show welcome agai
 
 Awake time is counted between detection ticks while thumbs-out holds its lock; gaps longer than
 about two poll intervals (the Mac slept anyway) aren't counted. Daily totals are kept for 30 days.
+
+<br clear="right">
 
 ## Build and run
 
@@ -137,3 +172,7 @@ Sources/ThumbsOut/       menu bar app: libproc, IOKit assertions and power state
 Tests/                   Swift Testing suites for the core
 scripts/build-app.sh     packages the SwiftPM binary into a signed .app
 ```
+
+## License
+
+[MIT](LICENSE)

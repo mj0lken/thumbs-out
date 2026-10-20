@@ -19,7 +19,7 @@ struct AgentDiscoveryTests {
         let found = discover(["/Applications/Claude.app", "/Users/me/Applications/Antigravity IDE.app"])
         #expect(found == [
             AgentInstallation(agent: .claudeCode, kind: .app, name: "Claude app", path: "/Applications/Claude.app"),
-            AgentInstallation(agent: .antigravity, kind: .app, name: "Antigravity IDE",
+            AgentInstallation(agent: .antigravityIDE, kind: .app, name: "Antigravity IDE",
                               path: "/Users/me/Applications/Antigravity IDE.app"),
         ])
     }

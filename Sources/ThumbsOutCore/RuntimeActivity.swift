@@ -57,18 +57,11 @@ public struct RuntimeActivityDetector: Sendable {
 }
 
 public enum MachTime {
-    /// CPU times from `proc_pidinfo` are Mach ticks: nanoseconds on Intel (timebase 1/1), but
-    /// 41.67 ns units on Apple Silicon (timebase 125/3). Ignoring that underreports CPU 24×.
+    /// CPU times from `proc_pidinfo` are Mach ticks, 41.67 ns each on Apple Silicon (timebase 125/3).
+    /// Reading them as nanoseconds would underreport CPU 24×.
     public static func seconds(ticks: UInt64, numer: UInt32, denom: UInt32) -> TimeInterval {
         guard denom > 0 else { return 0 }
         return Double(ticks) * Double(numer) / Double(denom) / 1_000_000_000
     }
 
-    /// The timebase to use for kernel CPU times. An Intel build running under Rosetta is told the
-    /// timebase is 1/1, but `proc_pidinfo` still returns native Apple Silicon ticks.
-    public static func cpuTimebase(
-        reportedNumer: UInt32, reportedDenom: UInt32, isTranslated: Bool
-    ) -> (numer: UInt32, denom: UInt32) {
-        isTranslated ? (125, 3) : (reportedNumer, reportedDenom)
-    }
 }

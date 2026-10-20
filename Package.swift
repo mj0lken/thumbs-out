@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "thumbs-out",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v15)],
     targets: [
         // Pure detection + policy logic. No system calls, fully unit-tested.
         .target(name: "ThumbsOutCore"),

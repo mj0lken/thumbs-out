@@ -56,11 +56,19 @@ struct AgentMatchingTests {
     @Test("recognises Antigravity and its helpers", arguments: [
         Fixtures.antigravityPath,
         Fixtures.antigravityHelperPath,
-        "/Applications/Antigravity IDE.app/Contents/MacOS/Electron",
         "/Applications/Antigravity.app/Contents/Resources/bin/language_server",
     ])
     func antigravity(path: String) {
         #expect(Agent.agent(for: Fixtures.process(10, parent: 1, path)) == .antigravity)
+    }
+
+    @Test("Antigravity IDE is its own entry, watched by default", arguments: [
+        "/Applications/Antigravity IDE.app/Contents/MacOS/Electron",
+        "/Applications/Antigravity IDE.app/Contents/Frameworks/Antigravity IDE Helper.app/Contents/MacOS/Antigravity IDE Helper",
+    ])
+    func antigravityIDE(path: String) {
+        #expect(Agent.agent(for: Fixtures.process(10, parent: 1, path)) == .antigravityIDE)
+        #expect(Agent.antigravityIDE.isWatchedByDefault)
     }
 
     @Test("ignores unrelated processes", arguments: [

@@ -29,7 +29,7 @@ public struct ActivityDetector: Sendable {
 
     /// Background helpers that interactive shells keep alive without the user running anything.
     public static let defaultIgnoredProcessNames: Set<String> = [
-        "gitstatusd", "gitstatusd-darwin-arm64", "gitstatusd-darwin-x86_64", "starship", "direnv", "zsh-autosuggest",
+        "gitstatusd", "gitstatusd-darwin-arm64", "starship", "direnv", "zsh-autosuggest",
     ]
 
     public let ignoredProcessNames: Set<String>

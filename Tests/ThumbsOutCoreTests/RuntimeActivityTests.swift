@@ -63,16 +63,8 @@ struct RuntimeActivityTests {
 
     @Test("converts Mach ticks to seconds, as Apple Silicon reports CPU time in ticks")
     func machTicks() {
-        // Apple Silicon timebase is 125/3 (one tick = 41.67 ns); Intel's is 1/1 (nanoseconds).
+        // Apple Silicon's timebase is 125/3: one tick is 41.67 ns.
         #expect(MachTime.seconds(ticks: 24_000_000, numer: 125, denom: 3) == 1.0)
-        #expect(MachTime.seconds(ticks: 1_000_000_000, numer: 1, denom: 1) == 1.0)
         #expect(MachTime.seconds(ticks: 5, numer: 1, denom: 0) == 0)
-    }
-
-    @Test("under Rosetta the reported 1/1 timebase is wrong for kernel CPU times; use Apple Silicon's")
-    func rosettaTimebase() {
-        #expect(MachTime.cpuTimebase(reportedNumer: 1, reportedDenom: 1, isTranslated: true) == (125, 3))
-        #expect(MachTime.cpuTimebase(reportedNumer: 1, reportedDenom: 1, isTranslated: false) == (1, 1))
-        #expect(MachTime.cpuTimebase(reportedNumer: 125, reportedDenom: 3, isTranslated: false) == (125, 3))
     }
 }

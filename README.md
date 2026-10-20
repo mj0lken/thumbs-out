@@ -8,7 +8,7 @@ What it watches, in three tiers:
 
 | Tier | Entries | Default |
 |------|---------|---------|
-| **Agents** | Claude Code (CLI, npm, Claude desktop app's Code tab, IDE extensions), ChatGPT / Codex, Antigravity / Gemini CLI, Cursor (app + `cursor-agent`), Windsurf, Kiro, GitHub Copilot CLI, OpenCode, Aider, Goose, Amp, Factory Droid, Qwen Code, Crush | On |
+| **Agents** | Claude Code (CLI, npm, Claude desktop app's Code tab, IDE extensions), ChatGPT / Codex, Antigravity / Gemini CLI, Antigravity IDE, Cursor (app + `cursor-agent`), Windsurf, Kiro, GitHub Copilot CLI, OpenCode, Aider, Goose, Amp, Factory Droid, Qwen Code, Crush | On |
 | **Editors & terminals** | VS Code (Copilot, Cline and other extensions), Zed, Warp | Off: every command typed in them counts too |
 | **Local models** | Ollama, LM Studio | Off: counted as busy while generating, by CPU use |
 
@@ -89,7 +89,7 @@ about two poll intervals (the Mac slept anyway) aren't counted. Daily totals are
 
 ## Build and run
 
-Requires macOS 14+ and Xcode (Swift 6).
+Requires an Apple Silicon Mac with macOS 15+, and Xcode (Swift 6) to build.
 
 ```bash
 ./scripts/build-app.sh            # builds build/thumbs-out.app
@@ -110,17 +110,15 @@ pmset -g | grep -i sleepdisabled
 
 ## Compatibility
 
-| | Status |
-|---|---|
-| **macOS** | 14 Sonoma or later (both slices are built with `minos 14.0`). Going lower would mean replacing the Observation framework and other macOS 14 APIs; macOS 13 and older no longer get Apple security updates. |
-| **Apple Silicon** | Native. Developed and tested on an M4 Pro, macOS 26. |
-| **Intel Macs** | Universal binary. All tests pass as Intel code under Rosetta, and the Intel build launches and renders there. Not yet run on real Intel hardware. macOS 26 Tahoe is the last release for Intel Macs. |
-| **Rosetta** | If the Intel build runs on Apple Silicon, CPU times from the kernel stay in native ticks while the reported timebase is 1/1; thumbs-out detects translation and corrects for it. |
-| **Desktop Macs** (mini, Studio, iMac, Pro) | No lid is detected (no `AppleClamshellState`), so lid-closed mode is hidden everywhere and skipped in onboarding. No battery means no battery threshold. Not yet tested on desktop hardware. |
-| **MacBook Air** | Fanless, so it heats up faster with the lid closed. Same heat warning applies. |
+- **Apple Silicon only** (arm64). Intel Macs aren't supported.
+- **macOS 15 Sequoia or later**: the releases Apple still ships security updates for (27, 26 and 15).
+  The audience keeps their Macs current, so older releases aren't worth the untested surface.
+- **MacBooks and desktop Macs.** Without a lid (mini, Studio, iMac), lid-closed mode is hidden
+  everywhere and skipped in onboarding; **Remove Lid-Closed Setup…** stays reachable if it was set
+  up before. No battery means no battery threshold. Not yet tested on desktop hardware.
+- **MacBook Air** is fanless and heats up faster with the lid closed; the same heat warning applies.
 
-Macs that run macOS 14: MacBook Air and MacBook Pro 2018 and later, Mac mini 2018+, iMac 2019+,
-iMac Pro, Mac Pro 2019+ and Mac Studio.
+Developed and tested on an M4 Pro MacBook Pro running macOS 26.
 
 ## Limitations
 

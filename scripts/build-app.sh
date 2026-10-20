@@ -6,8 +6,8 @@ cd "$(dirname "$0")/.."
 
 APP="build/thumbs-out.app"
 
-# Universal binary: Apple Silicon plus Intel (macOS 26 Tahoe is the last release for Intel Macs).
-ARCHS=(--arch arm64 --arch x86_64)
+# Apple Silicon only.
+ARCHS=(--arch arm64)
 swift build -c release "${ARCHS[@]}"
 BIN_DIR="$(swift build -c release "${ARCHS[@]}" --show-bin-path)"
 

@@ -60,7 +60,7 @@ public struct Agent: Hashable, Sendable, Identifiable, CaseIterable {
 
 extension Agent {
     public static let allCases: [Agent] = [
-        .claudeCode, .chatGPT, .antigravity, .cursor, .windsurf, .kiro, .copilot, .opencode, .aider, .goose,
+        .claudeCode, .chatGPT, .antigravity, .antigravityIDE, .cursor, .windsurf, .kiro, .copilot, .opencode, .aider, .goose,
         .amp, .droid, .qwen, .crush, .vscode, .zed, .warp, .ollama, .lmStudio,
     ]
 
@@ -82,14 +82,19 @@ extension Agent {
     /// Google's agents: Antigravity and its `agy` CLI, plus Gemini CLI, which `agy` replaces.
     public static let antigravity = Agent(
         id: "antigravity", displayName: "Antigravity / Gemini", category: .agent,
-        processNames: ["agy", "antigravity", "gemini"], pathFragments: ["/Antigravity.app/", "/Antigravity IDE.app/"],
+        processNames: ["agy", "antigravity", "gemini"], pathFragments: ["/Antigravity.app/"],
         argumentFragments: ["@google/gemini-cli"],
-        apps: [
-            App(bundle: "Antigravity.app", name: "Antigravity"),
-            App(bundle: "Antigravity IDE.app", name: "Antigravity IDE"),
-        ],
+        apps: [App(bundle: "Antigravity.app", name: "Antigravity")],
         commandLineTools: ["agy", "antigravity", "gemini"],
-        bundleIdentifiers: ["com.google.antigravity", "com.google.antigravity-ide"]
+        bundleIdentifiers: ["com.google.antigravity"]
+    )
+
+    /// Google's separate VS Code-based editor, with the agent built into its terminal.
+    public static let antigravityIDE = Agent(
+        id: "antigravityIDE", displayName: "Antigravity IDE", category: .agent,
+        processNames: [], pathFragments: ["/Antigravity IDE.app/"], argumentFragments: [],
+        apps: [App(bundle: "Antigravity IDE.app", name: "Antigravity IDE")], commandLineTools: [],
+        bundleIdentifiers: ["com.google.antigravity-ide"]
     )
 
     public static let cursor = Agent(

@@ -34,6 +34,7 @@
   const dots = [...intro.querySelectorAll(".tour-progress i")];
 
   intro.classList.add("is-live");
+  buildKeyboard(intro.querySelector(".keyboard"));
 
   // Scroll progress (0–1) at which each phase starts and ends.
   const PHASE = { open: [0.02, 0.13], zoom: [0.13, 0.23], reveal: [0.205, 0.245], point: [0.245, 0.285], click: 0.29, tour: [0.3, 0.985] };
@@ -60,11 +61,16 @@
     const lidHeight = lid.offsetHeight;
     // The closed laptop starts small and low, then grows and rises as the lid opens.
     const narrow = vw <= 980;
-    const startScale = vw < 760 ? 0.82 : 0.6;
-    const hingeStart = vh * (vw < 760 ? 0.88 : 0.84);
+    // Fit the closed laptop between the end of the headline copy and the bottom of the screen.
+    // When shut it shows about 0.95 of its depth (lid seen from above plus the front edge).
+    const copyBottom = copy.offsetTop + copy.offsetHeight;
+    const hingeStart = Math.max(copyBottom + 12, vh * 0.55);
+    const maxStartScale = vw < 760 ? 0.7 : 0.48;
+    const startScale = Math.min(maxStartScale, Math.max(0.3, (vh - hingeStart - 24) / (0.95 * lidHeight)));
     const hingeOpen = vh * (vw < 760 ? 0.74 : 0.76);
-    const screenWidth = width * 0.956;
-    const screenHeight = lidHeight * 0.928;
+    // The display inside the lid (see .screen insets in laptop.css).
+    const screenWidth = width * 0.962;
+    const screenHeight = lidHeight * 0.93;
     const zoom = Math.max(vw / screenWidth, vh / screenHeight) * 1.03;
 
     // Panel sits under the menu bar icon, kept on screen.
@@ -158,6 +164,30 @@
   window.addEventListener("resize", () => { geometry = null; requestRender(); });
 
   render();
+
+  // A MacBook Pro key layout, in key widths per row (each row adds up to 14.5).
+  function buildKeyboard(keyboard) {
+    if (!keyboard) return;
+    const rows = [
+      { keys: [1.5, ...Array(12).fill(1), 1], className: "function", touchId: true },
+      { keys: [...Array(13).fill(1), 1.5] },
+      { keys: [1.5, ...Array(13).fill(1)] },
+      { keys: [1.8, ...Array(11).fill(1), 1.7] },
+      { keys: [2.3, ...Array(10).fill(1), 2.2] },
+      { keys: [1, 1, 1, 1.25, 5, 1.25, 1, 1, 1, 1] },
+    ];
+    for (const row of rows) {
+      const rowElement = document.createElement("div");
+      rowElement.className = `key-row ${row.className ?? ""}`;
+      row.keys.forEach((width, index) => {
+        const key = document.createElement("span");
+        key.className = row.touchId && index === row.keys.length - 1 ? "key touch-id" : "key";
+        key.style.flexGrow = String(width);
+        rowElement.append(key);
+      });
+      keyboard.append(rowElement);
+    }
+  }
 
   // ---------- Compatibility check ----------
   // Browsers hide some system details on purpose. Chromium browsers share the macOS version and

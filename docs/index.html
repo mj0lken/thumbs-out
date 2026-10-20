@@ -25,6 +25,7 @@
   <!-- Only downloaded where SF Pro Rounded (ui-rounded) isn't available. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap">
   <link rel="stylesheet" href="site.css">
+  <link rel="stylesheet" href="laptop.css">
   <script src="site.js" defer></script>
 </head>
 <body>
@@ -71,16 +72,30 @@
 
         <div class="scene" aria-hidden="true">
           <div class="floor-shadow"></div>
+          <!-- A MacBook Pro 14" in CSS 3D: lid and base are the same size, with real thickness. -->
           <div class="laptop">
             <div class="screen-lid">
               <div class="lid-face lid-front">
                 <div class="screen">
                   <div class="mini-menubar"><span></span><svg viewBox="0 0 100 100"><use href="#glyph"/></svg></div>
+                  <div class="screen-notch"></div>
                 </div>
               </div>
-              <div class="lid-face lid-back"><svg class="mark" viewBox="0 0 100 100"><use href="#mark"/></svg></div>
+              <div class="lid-face lid-back">
+                <span class="sticker"><svg class="mark" viewBox="0 0 100 100"><use href="#mark"/></svg></span>
+              </div>
+              <div class="lid-edge"></div>
             </div>
-            <div class="deck"><div class="keyboard"></div><div class="trackpad"></div></div>
+            <div class="base">
+              <div class="deck">
+                <div class="hinge"></div>
+                <div class="speaker speaker-left"></div>
+                <div class="keyboard"></div>
+                <div class="speaker speaker-right"></div>
+                <div class="trackpad"></div>
+              </div>
+              <div class="base-front"></div>
+            </div>
           </div>
         </div>
 
@@ -90,6 +105,7 @@
             <strong>Cursor</strong>
             <span class="mb-menu">File</span><span class="mb-menu">Edit</span><span class="mb-menu">View</span><span class="mb-menu">Window</span>
             <span class="mb-spacer"></span>
+            <span class="mb-notch"></span>
             <span class="mb-icon"><svg viewBox="0 0 100 100"><use href="#glyph"/></svg></span>
             <svg class="mb-wifi" viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="19" r="1.6" fill="currentColor"/></svg>
             <span class="mb-clock">Tue 15:42</span>

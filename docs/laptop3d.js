@@ -198,11 +198,11 @@ function buildLaptop(renderer, environment) {
   sticker.position.set(6.6, LID_T + 0.03, D * 0.38);
   pivot.add(sticker);
 
-  // The polished logo in the middle of the lid. Upright as the camera sees the closed laptop
-  // (a real one reads upright from behind; upside down here it just looked like a blob).
+  // The polished logo in the middle of the lid. As on a real MacBook it reads upright from behind
+  // the open laptop, so from the front of the closed one it's upside down.
   if (APPLE_OS) {
     const logo = new THREE.Mesh(
-      new THREE.PlaneGeometry(5.2, 5.2).rotateX(-Math.PI / 2),
+      new THREE.PlaneGeometry(5.2, 5.2).rotateX(-Math.PI / 2).rotateY(Math.PI),
       overlay(new THREE.MeshPhysicalMaterial({ map: canvasTexture(drawLogo, 512, 512, anisotropy), transparent: true, color: 0xa9adb3, metalness: 1, roughness: 0.1 })),
     );
     logo.position.set(0, LID_T + 0.03, D / 2);

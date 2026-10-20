@@ -2,73 +2,66 @@ import AppKit
 import SwiftUI
 import ThumbsOutCore
 
-/// The thumbs-out mark: a classic thumbs-up seen from the knuckle side, with the four knuckles
-/// stacked down the front of the fist. Geometry lives in a 100×100 box (y down) and is shared by
-/// the badge, the menu bar glyph and the app icon. docs/favicon.svg and the site use the same shapes.
+/// The thumbs-out mark: a standard thumbs-up, drawn as an outline. Geometry lives on a 24-unit
+/// icon grid (y down) and is shared by the badge, the menu bar glyph and the app icon.
+/// docs/favicon.svg and the site use the same paths.
 enum ThumbMark {
-    /// The thumb leans 8° forward around this point.
-    private static let lean = CGAffineTransform(translationX: 39, y: 30).rotated(by: .pi / 22.5).translatedBy(x: -39, y: -30)
+    /// The cuff, to the left of the hand.
+    static let cuff = Path(roundedRect: CGRect(x: 2.2, y: 10.2, width: 3.6, height: 11), cornerRadius: 1)
 
-    /// The fist, cut off by the bottom of the badge, with four knuckle bumps on its front edge.
-    static let fist: Path = {
+    /// The hand: thumb up, fingers curled to the right.
+    static let hand: Path = {
         var path = Path()
-        path.move(to: CGPoint(x: 24, y: 104))
-        path.addLine(to: CGPoint(x: 24, y: 54))
-        path.addQuadCurve(to: CGPoint(x: 36, y: 42), control: CGPoint(x: 24, y: 42))
-        path.addLine(to: CGPoint(x: 66, y: 42))
-        path.addQuadCurve(to: CGPoint(x: 66, y: 57), control: CGPoint(x: 74, y: 49.5))
-        path.addQuadCurve(to: CGPoint(x: 66, y: 72), control: CGPoint(x: 75, y: 64.5))
-        path.addQuadCurve(to: CGPoint(x: 66, y: 87), control: CGPoint(x: 75, y: 79.5))
-        path.addCurve(to: CGPoint(x: 66, y: 104), control1: CGPoint(x: 77.3, y: 87), control2: CGPoint(x: 77.3, y: 104))
+        path.move(to: CGPoint(x: 7.4, y: 21.2))
+        path.addLine(to: CGPoint(x: 7.4, y: 11.2))
+        path.addLine(to: CGPoint(x: 11, y: 3.6))
+        path.addCurve(to: CGPoint(x: 13.5, y: 4.2), control1: CGPoint(x: 11.6, y: 2.4), control2: CGPoint(x: 13.5, y: 2.7))
+        path.addLine(to: CGPoint(x: 13, y: 9.6))
+        path.addLine(to: CGPoint(x: 19, y: 9.6))
+        path.addCurve(to: CGPoint(x: 20.9, y: 12.2), control1: CGPoint(x: 20.3, y: 9.6), control2: CGPoint(x: 21.3, y: 10.9))
+        path.addLine(to: CGPoint(x: 19, y: 19.5))
+        path.addCurve(to: CGPoint(x: 16.8, y: 21.2), control1: CGPoint(x: 18.7, y: 20.6), control2: CGPoint(x: 17.8, y: 21.2))
         path.closeSubpath()
         return path
     }()
 
-    static let thumb = Path(roundedRect: CGRect(x: 26, y: 2, width: 26, height: 56), cornerRadius: 13).applying(lean)
-    static let nail = Path(roundedRect: CGRect(x: 31, y: 6, width: 16, height: 18), cornerRadius: 7).applying(lean)
-
-    /// The creases between the curled fingers.
-    static let fingers: Path = {
-        var path = Path()
-        for y in [57.0, 72.0, 87.0] {
-            path.move(to: CGPoint(x: 44, y: y))
-            path.addLine(to: CGPoint(x: 64, y: y))
-        }
+    static let outline: Path = {
+        var path = cuff
+        path.addPath(hand)
         return path
     }()
 
-    /// Fist and thumb merged into one outline, for single-colour uses like the menu bar.
-    static let silhouette = Path(fist.cgPath.union(thumb.cgPath))
-}
+    /// The drawing's extent on the grid, used to centre it.
+    static let bounds = CGRect(x: 2.2, y: 2.4, width: 18.7, height: 18.8)
 
-/// Scales one part of the mark from its 100-unit box into the view's frame.
-struct ThumbMarkShape: Shape {
-    let part: Path
-
-    func path(in rect: CGRect) -> Path {
-        part.applying(CGAffineTransform(scaleX: rect.width / 100, y: rect.height / 100))
+    /// Maps the grid into `rect`, centred, with the drawing taking `fraction` of the rect's width.
+    static func transform(into rect: CGRect, fraction: CGFloat) -> CGAffineTransform {
+        let scale = rect.width * fraction / max(bounds.width, bounds.height)
+        return CGAffineTransform(translationX: rect.midX - bounds.midX * scale, y: rect.midY - bounds.midY * scale)
+            .scaledBy(x: scale, y: scale)
     }
 }
 
-/// The app's badge: night background, with the hand in the colour of the current state.
+/// The outlined thumbs-up, scaled into the view's frame.
+struct ThumbMarkShape: Shape {
+    var part: Path = ThumbMark.outline
+    var fraction: CGFloat = 0.56
+
+    func path(in rect: CGRect) -> Path {
+        part.applying(ThumbMark.transform(into: rect, fraction: fraction))
+    }
+}
+
+/// The app's badge: night background with the outlined thumb in the colour of the current state.
 struct ThumbBadge: View {
     let color: Color
     var size: CGFloat = 40
 
     var body: some View {
-        let badge = RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
-        let line = StrokeStyle(lineWidth: size * 0.035, lineCap: .round)
         ZStack {
-            badge.fill(Theme.night)
-            ZStack {
-                ThumbMarkShape(part: ThumbMark.fist).fill(color)
-                ThumbMarkShape(part: ThumbMark.fingers).stroke(Theme.night.opacity(0.3), style: line)
-                // A night outline separates the thumb from the fist.
-                ThumbMarkShape(part: ThumbMark.thumb).stroke(Theme.night, style: line)
-                ThumbMarkShape(part: ThumbMark.thumb).fill(color)
-                ThumbMarkShape(part: ThumbMark.nail).fill(.white.opacity(0.7))
-            }
-            .clipShape(badge)
+            RoundedRectangle(cornerRadius: size * 0.24, style: .continuous).fill(Theme.night)
+            ThumbMarkShape()
+                .stroke(color, style: StrokeStyle(lineWidth: size * 0.052, lineCap: .round, lineJoin: .round))
         }
         .frame(width: size, height: size)
         .compositingGroup() // One shadow for the whole mark, not one per layer.
@@ -91,32 +84,21 @@ enum MenuBarGlyph {
         let size = NSSize(width: 18, height: 18)
         let image = NSImage(size: size, flipped: true) { _ in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
-            let bounds = ThumbMark.silhouette.boundingRect
-            let scale = 16.5 / max(bounds.width, bounds.height)
-            let transform = CGAffineTransform(translationX: (size.width - bounds.width * scale) / 2, y: (size.height - bounds.height * scale) / 2)
-                .scaledBy(x: scale, y: scale)
-                .translatedBy(x: -bounds.minX, y: -bounds.minY)
+            let transform = ThumbMark.transform(into: CGRect(origin: .zero, size: size), fraction: 0.86)
             if filled {
-                context.addPath(ThumbMark.fist.applying(transform).cgPath)
-                context.fillPath()
-                // Cut a thin gap around the thumb so it reads apart from the fist.
-                let thumb = ThumbMark.thumb.applying(transform).cgPath
-                context.setBlendMode(.clear)
-                context.setLineWidth(1.6)
-                context.addPath(thumb)
-                context.strokePath()
-                context.setBlendMode(.normal)
-                context.addPath(thumb)
+                // Cuff and hand are separate shapes, so the gap between them stays visible.
+                context.addPath(ThumbMark.cuff.applying(transform).cgPath)
+                context.addPath(ThumbMark.hand.applying(transform).cgPath)
                 context.fillPath()
             } else {
-                context.addPath(ThumbMark.silhouette.applying(transform).cgPath)
-                context.setLineWidth(1.4)
+                context.addPath(ThumbMark.outline.applying(transform).cgPath)
+                context.setLineWidth(1.3)
                 context.setLineJoin(.round)
                 context.strokePath()
             }
             if lidSleepDisabled {
-                // The glyph leaves the top-right corner empty; the dot sits there.
-                context.fillEllipse(in: CGRect(x: 12.5, y: 1, width: 5, height: 5))
+                // The thumb leaves the top-right corner empty; the dot sits there.
+                context.fillEllipse(in: CGRect(x: 13, y: 1, width: 4.5, height: 4.5))
             }
             return true
         }

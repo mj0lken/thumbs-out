@@ -25,7 +25,6 @@
   <!-- Only downloaded where SF Pro Rounded (ui-rounded) isn't available. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap">
   <link rel="stylesheet" href="site.css">
-  <link rel="stylesheet" href="laptop.css">
   <script src="site.js" defer></script>
 </head>
 <body>
@@ -71,32 +70,8 @@
         </div>
 
         <div class="scene" aria-hidden="true">
-          <div class="floor-shadow"></div>
-          <!-- A MacBook Pro 14" in CSS 3D: lid and base are the same size, with real thickness. -->
-          <div class="laptop">
-            <div class="screen-lid">
-              <div class="lid-face lid-front">
-                <div class="screen">
-                  <div class="mini-menubar"><span></span><svg viewBox="0 0 100 100"><use href="#glyph"/></svg></div>
-                  <div class="screen-notch"></div>
-                </div>
-              </div>
-              <div class="lid-face lid-back">
-                <span class="sticker"><svg class="mark" viewBox="0 0 100 100"><use href="#mark"/></svg></span>
-              </div>
-              <div class="lid-edge"></div>
-            </div>
-            <div class="base">
-              <div class="deck">
-                <div class="hinge"></div>
-                <div class="speaker speaker-left"></div>
-                <div class="keyboard"></div>
-                <div class="speaker speaker-right"></div>
-                <div class="trackpad"></div>
-              </div>
-              <div class="base-front"></div>
-            </div>
-          </div>
+          <!-- A MacBook Pro 14" in WebGL (laptop3d.js). Without WebGL the story skips to the desktop. -->
+          <canvas class="scene-canvas"></canvas>
         </div>
 
         <div class="desktop" id="tour" data-step="-1">
@@ -277,23 +252,20 @@
     </p>
   </footer>
 
-  <!-- The mark: a classic thumbs-up seen from the knuckle side. Same geometry as ThumbMark.swift. -->
+  <!-- The mark: a standard thumbs-up, outlined. Same paths as ThumbMark.swift (24-unit grid). -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs><clipPath id="badge-clip"><rect width="100" height="100" rx="24"/></clipPath></defs>
     <symbol id="mark" viewBox="0 0 100 100">
       <rect width="100" height="100" rx="24" fill="#15142B"/>
-      <g clip-path="url(#badge-clip)">
-        <path d="M24 104V54Q24 42 36 42H66Q74 49.5 66 57Q75 64.5 66 72Q75 79.5 66 87C77.3 87 77.3 104 66 104Z" fill="#34E07F"/>
-        <path d="M44 57H64M44 72H64M44 87H64" stroke="#15142B" stroke-opacity=".3" stroke-width="3.5" stroke-linecap="round"/>
-        <g transform="rotate(8 39 30)">
-          <rect x="26" y="2" width="26" height="56" rx="13" fill="#34E07F" stroke="#15142B" stroke-width="3.5" paint-order="stroke"/>
-          <rect x="31" y="6" width="16" height="18" rx="7" fill="#fff" fill-opacity=".7"/>
-        </g>
+      <g transform="translate(15.59 14.85) scale(2.979)" fill="none" stroke="#34E07F" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3.2 10.2h1.6a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3.2a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z"/>
+        <path d="M7.4 21.2V11.2L11 3.6C11.6 2.4 13.5 2.7 13.5 4.2L13 9.6H19C20.3 9.6 21.3 10.9 20.9 12.2L19 19.5C18.7 20.6 17.8 21.2 16.8 21.2Z"/>
       </g>
     </symbol>
-    <symbol id="glyph" viewBox="0 0 100 100">
-      <path d="M24 104V54Q24 42 36 42H66Q74 49.5 66 57Q75 64.5 66 72Q75 79.5 66 87C77.3 87 77.3 104 66 104Z"/>
-      <rect x="26" y="2" width="26" height="56" rx="13" transform="rotate(8 39 30)"/>
+    <symbol id="glyph" viewBox="1 1.4 21 21">
+      <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3.2 10.2h1.6a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3.2a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z"/>
+        <path d="M7.4 21.2V11.2L11 3.6C11.6 2.4 13.5 2.7 13.5 4.2L13 9.6H19C20.3 9.6 21.3 10.9 20.9 12.2L19 19.5C18.7 20.6 17.8 21.2 16.8 21.2Z"/>
+      </g>
     </symbol>
   </svg>
 </body>

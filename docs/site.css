@@ -114,7 +114,7 @@ body.on-desktop .site-header { transform: translateY(-100%); opacity: 0; }
 /* The stage is the zoomed-in screen, so its menu bar keeps the camera notch. */
 .mb-notch { position: absolute; left: 50%; top: 0; width: 170px; height: 100%; transform: translateX(-50%); background: #000; border-radius: 0 0 12px 12px; }
 .mb-icon { display: grid; place-items: center; width: 30px; height: 22px; border-radius: 6px; color: #fff; transition: background var(--duration-fast); }
-.mb-icon svg { width: 15px; height: 15px; fill: currentColor; }
+.mb-icon svg { width: 16px; height: 16px; }
 .mb-wifi { width: 16px; height: 16px; }
 .panel-wrap { position: relative; width: 100%; aspect-ratio: 684 / 1280; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255, 255, 255, 0.12); }
 .panel { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
@@ -135,8 +135,9 @@ body.on-desktop .site-header { transform: translateY(-100%); opacity: 0; }
 .scroll-cue span { display: inline-block; animation: nudge 1.6s ease-in-out infinite; }
 @keyframes nudge { 50% { transform: translateY(5px); } }
 
-.intro.is-live .scene { display: block; position: absolute; inset: 0; perspective: 2600px; perspective-origin: 50% 10%; z-index: 2; }
-.floor-shadow { position: absolute; left: 50%; top: 0; width: min(820px, 92vw); height: 90px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(21, 20, 43, 0.28), transparent); will-change: opacity; }
+.intro.is-live .scene { display: block; position: absolute; inset: 0; z-index: 2; }
+.scene-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.intro.no-laptop .scene { display: none; }
 
 .intro.is-live .desktop { position: absolute; inset: 0; z-index: 4; display: block; padding: 0; opacity: 0; visibility: hidden; transition: visibility 0s linear 300ms; }
 .intro.is-live .desktop.is-visible { visibility: visible; transition-delay: 0s; }

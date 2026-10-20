@@ -23,10 +23,9 @@
   const intro = document.querySelector(".intro");
   if (!intro || reducedMotion) return; // The static tour already reads top to bottom.
 
+  const stage = intro.querySelector(".intro-sticky");
   const copy = intro.querySelector(".intro-copy");
-  const laptop = intro.querySelector(".laptop");
-  const lid = intro.querySelector(".screen-lid");
-  const shadow = intro.querySelector(".floor-shadow");
+  const canvas = intro.querySelector(".scene-canvas");
   const desktop = intro.querySelector(".desktop");
   const panelWrap = intro.querySelector(".panel-wrap");
   const icon = intro.querySelector(".mb-icon");
@@ -34,7 +33,6 @@
   const dots = [...intro.querySelectorAll(".tour-progress i")];
 
   intro.classList.add("is-live");
-  buildKeyboard(intro.querySelector(".keyboard"));
 
   // Scroll progress (0–1) at which each phase starts and ends.
   const PHASE = { open: [0.02, 0.13], zoom: [0.13, 0.23], reveal: [0.205, 0.245], point: [0.245, 0.285], click: 0.29, tour: [0.3, 0.985] };
@@ -47,31 +45,47 @@
   const mix = (a, b, t) => a + (b - a) * t;
 
   let geometry = null;
+  let laptopView = null;
+  let laptopState = "idle"; // idle → loading → ready, or failed
   // ?preview=0.4 freezes the tour at that point without scrolling, for screenshots.
   const previewParam = new URLSearchParams(location.search).get("preview");
   const preview = previewParam !== null && Number(previewParam) >= 0 && Number(previewParam) <= 1 ? Number(previewParam) : null;
 
-  // Measures the layout once per resize; transforms are cleared while measuring.
+  // The 3D laptop (and three.js, ~170 KB gzipped) loads only once the visitor is in its part of
+  // the story. Without WebGL the story skips straight to the desktop.
+  function loadLaptop() {
+    laptopState = "loading";
+    const preload = document.createElement("link");
+    preload.rel = "modulepreload";
+    preload.href = "vendor/three/three.module.min.js";
+    document.head.append(preload);
+    import("./laptop3d.js")
+      .then(({ createLaptopView }) => {
+        laptopView = createLaptopView(canvas);
+        laptopState = "ready";
+        geometry = null;
+        requestRender();
+      })
+      .catch(disableLaptop);
+  }
+
+  function disableLaptop(error) {
+    console.warn("thumbs-out: 3D laptop unavailable, skipping it.", error);
+    laptopView?.dispose();
+    laptopView = null;
+    laptopState = "failed";
+    intro.classList.add("no-laptop");
+    requestRender();
+  }
+
+  // Measures the layout once per resize. Sizes come from the sticky stage (100svh), not the
+  // window: on phones innerHeight grows when the toolbar collapses, the stage doesn't.
   function measure() {
-    laptop.style.transform = "none";
-    lid.style.transform = "none";
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const width = laptop.offsetWidth;
-    const lidHeight = lid.offsetHeight;
-    // The closed laptop starts small and low, then grows and rises as the lid opens.
+    const vw = stage.clientWidth;
+    const vh = stage.clientHeight;
     const narrow = vw <= 980;
-    // Fit the closed laptop between the end of the headline copy and the bottom of the screen.
-    // When shut it shows about 0.95 of its depth (lid seen from above plus the front edge).
     const copyBottom = copy.offsetTop + copy.offsetHeight;
-    const hingeStart = Math.max(copyBottom + 12, vh * 0.55);
-    const maxStartScale = vw < 760 ? 0.7 : 0.48;
-    const startScale = Math.min(maxStartScale, Math.max(0.3, (vh - hingeStart - 24) / (0.95 * lidHeight)));
-    const hingeOpen = vh * (vw < 760 ? 0.74 : 0.76);
-    // The display inside the lid (see .screen insets in laptop.css).
-    const screenWidth = width * 0.962;
-    const screenHeight = lidHeight * 0.93;
-    const zoom = Math.max(vw / screenWidth, vh / screenHeight) * 1.03;
+    laptopView?.resize({ width: vw, height: vh, copyBottom });
 
     // Panel sits under the menu bar icon, kept on screen.
     const iconRect = icon.getBoundingClientRect();
@@ -83,11 +97,10 @@
     panelWrap.style.width = `${panelWidth}px`;
 
     geometry = {
-      vw, vh, lidHeight, zoom, startScale, hingeStart, hingeOpen,
+      vw, vh,
       cursorFrom: { x: vw * 0.42, y: vh * 0.62 },
       cursorTo: { x: iconRect.left + iconRect.width / 2 - 4, y: iconRect.top + iconRect.height / 2 - 2 },
     };
-    laptop.style.transformOrigin = `50% ${lidHeight / 2}px`;
   }
 
   function render() {
@@ -96,42 +109,33 @@
     const g = geometry;
     const rect = intro.getBoundingClientRect();
     const scrollable = intro.offsetHeight - g.vh;
-    const p = preview ?? clamp01(-rect.top / scrollable);
+    const scrolled = preview ?? clamp01(-rect.top / scrollable);
+    // Without the laptop, the story starts just before the desktop appears.
+    const skipLaptop = laptopState === "failed";
+    const p = skipLaptop ? mix(PHASE.reveal[0] - 0.03, 1, scrolled) : scrolled;
     intro.dataset.progress = p.toFixed(3);
 
-    // 1. Lid opens, headline steps aside.
-    const open = easeInOut(progressIn(PHASE.open, p));
-    const zoomT = easeInOut(progressIn(PHASE.zoom, p));
-    // −87° folds the lid down onto the keyboard (raised a hair so the two planes don't fight);
-    // slightly positive leans the open screen back.
-    const lidAngle = mix(-87, 8, open) * (1 - zoomT);
-    const tilt = mix(26, 14, open) * (1 - zoomT);
-    lid.style.transform = `rotateX(${lidAngle}deg)`;
-    // Pick the visible face ourselves; backface-visibility isn't reliable in every 3D context.
-    lid.classList.toggle("show-back", lidAngle < -45);
+    // 1–2. The lid opens and the camera zooms into the screen (laptop3d.js); the headline steps aside.
+    const inLaptopPart = p < PHASE.reveal[1] + 0.02;
+    if (inLaptopPart && laptopState === "idle") loadLaptop();
+    if (inLaptopPart && laptopView) {
+      try {
+        laptopView.update({ open: easeInOut(progressIn(PHASE.open, p)), zoom: easeInOut(progressIn(PHASE.zoom, p)) });
+      } catch (error) {
+        disableLaptop(error);
+      }
+    }
 
-    const copyT = progressIn([0.0, 0.11], p);
+    const copyT = progressIn(skipLaptop ? [0.0, 0.04] : [0.0, 0.11], scrolled);
     copy.style.opacity = String(1 - copyT);
     copy.style.transform = `translateY(${-60 * ease(copyT)}px)`;
     copy.style.visibility = copyT >= 1 ? "hidden" : "visible";
-
-    // 2. Camera zooms into the screen. Positions are for the lid's centre (the transform origin).
-    const hinge = mix(g.hingeStart, g.hingeOpen, open);
-    const openScale = mix(g.startScale, 1, open);
-    const scale = zoomT > 0 ? mix(1, g.zoom, zoomT) : openScale;
-    const centerY = zoomT > 0 ? mix(g.hingeOpen - g.lidHeight / 2, g.vh / 2, zoomT) : hinge - (g.lidHeight / 2) * openScale;
-    // Negative tilt: the camera looks down on the laptop, as if it were on a desk.
-    laptop.style.transform = `translate(-50%, ${centerY - g.lidHeight / 2}px) scale(${scale}) rotateX(${-tilt}deg)`;
-    // The shadow sits under the front edge, which moves back toward the hinge as the lid opens.
-    const frontEdge = hinge + g.lidHeight * openScale * mix(0.62, 0.5, open);
-    shadow.style.transform = `translate(-50%, ${frontEdge - 45}px) scale(${openScale})`;
-    shadow.style.opacity = String(1 - zoomT);
 
     // 3. The desktop takes over from the zoomed screen.
     const reveal = progressIn(PHASE.reveal, p);
     desktop.style.opacity = String(reveal);
     desktop.classList.toggle("is-visible", reveal > 0);
-    laptop.style.opacity = String(1 - progressIn([PHASE.reveal[1] - 0.01, PHASE.reveal[1] + 0.01], p));
+    canvas.style.opacity = String(1 - progressIn([PHASE.reveal[1] - 0.01, PHASE.reveal[1] + 0.01], p));
     document.body.classList.toggle("on-desktop", reveal > 0.5 && p < 0.995);
 
     // 4. The cursor moves to the thumb and clicks; the panel drops down.
@@ -164,30 +168,6 @@
   window.addEventListener("resize", () => { geometry = null; requestRender(); });
 
   render();
-
-  // A MacBook Pro key layout, in key widths per row (each row adds up to 14.5).
-  function buildKeyboard(keyboard) {
-    if (!keyboard) return;
-    const rows = [
-      { keys: [1.5, ...Array(12).fill(1), 1], className: "function", touchId: true },
-      { keys: [...Array(13).fill(1), 1.5] },
-      { keys: [1.5, ...Array(13).fill(1)] },
-      { keys: [1.8, ...Array(11).fill(1), 1.7] },
-      { keys: [2.3, ...Array(10).fill(1), 2.2] },
-      { keys: [1, 1, 1, 1.25, 5, 1.25, 1, 1, 1, 1] },
-    ];
-    for (const row of rows) {
-      const rowElement = document.createElement("div");
-      rowElement.className = `key-row ${row.className ?? ""}`;
-      row.keys.forEach((width, index) => {
-        const key = document.createElement("span");
-        key.className = row.touchId && index === row.keys.length - 1 ? "key touch-id" : "key";
-        key.style.flexGrow = String(width);
-        rowElement.append(key);
-      });
-      keyboard.append(rowElement);
-    }
-  }
 
   // ---------- Compatibility check ----------
   // Browsers hide some system details on purpose. Chromium browsers share the macOS version and

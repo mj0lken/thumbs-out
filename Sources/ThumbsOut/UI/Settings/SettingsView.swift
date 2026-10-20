@@ -14,8 +14,6 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.ignoredProcessNames)
     private var ignoredProcessNames = AppSettings.defaultIgnoredProcessNamesText
 
-    @State private var isScanning = false
-
     var body: some View {
         Form {
             agentSections
@@ -78,15 +76,8 @@ struct SettingsView: View {
             HStack {
                 Text(category.title)
                 Spacer()
-                Button(isScanning ? "Scanning…" : "Scan Again") {
-                    Task {
-                        isScanning = true
-                        await controller.rescanAgents()
-                        isScanning = false
-                    }
-                }
-                .controlSize(.small)
-                .disabled(isScanning)
+                ScanAgainButton(controller: controller)
+                    .controlSize(.small)
             }
         } else {
             Text(category.title)
@@ -150,10 +141,9 @@ private struct LidClosedSection: View {
 
     var body: some View {
         Section {
-            FormSwitch(title: "Stay awake with the lid closed", isOn: Binding(
-                get: { lid.isBusy || (isEnabled && lid.isSetUp) },
-                set: { newValue in Task { await controller.setLidClosedMode(newValue) } }
-            ), tint: Theme.lid)
+            FormSwitch(
+                title: "Stay awake with the lid closed", isOn: controller.lidModeSwitch(isEnabled: isEnabled), tint: Theme.lid
+            )
             .disabled(lid.isBusy)
             Picker("Stop below battery level", selection: $minimumBatteryPercent) {
                 ForEach(AppSettings.minimumBatteryChoices, id: \.self) { Text("\($0)%").tag($0) }
@@ -209,7 +199,12 @@ private struct GeneralSection: View {
     var body: some View {
         Section("General") {
             FormSwitch(title: "Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, enabled in update(enabled) }
+                .onChange(of: launchAtLogin) { _, enabled in
+                    // Reverting after a failure fires this again; keep the error visible.
+                    guard enabled != LaunchAtLogin.isEnabled else { return }
+                    launchAtLoginError = LaunchAtLogin.setEnabled(enabled)
+                    if launchAtLoginError != nil { launchAtLogin = LaunchAtLogin.isEnabled }
+                }
             if let launchAtLoginError {
                 Text(launchAtLoginError).foregroundStyle(.red).font(.callout)
             } else if LaunchAtLogin.needsApproval {
@@ -217,17 +212,6 @@ private struct GeneralSection: View {
                     .foregroundStyle(.secondary).font(.callout)
             }
             Button("Show Welcome Again…", action: showWelcome)
-        }
-    }
-
-    private func update(_ enabled: Bool) {
-        guard enabled != LaunchAtLogin.isEnabled else { return }
-        do {
-            try LaunchAtLogin.setEnabled(enabled)
-            launchAtLoginError = nil
-        } catch {
-            launchAtLoginError = "Couldn't change the login item: \(error.localizedDescription)"
-            launchAtLogin = LaunchAtLogin.isEnabled
         }
     }
 }

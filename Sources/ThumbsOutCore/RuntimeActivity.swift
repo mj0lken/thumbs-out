@@ -63,5 +63,4 @@ public enum MachTime {
         guard denom > 0 else { return 0 }
         return Double(ticks) * Double(numer) / Double(denom) / 1_000_000_000
     }
-
 }

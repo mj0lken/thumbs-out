@@ -26,10 +26,7 @@ enum DemoRenderer {
 
     /// `--render-site <dir>`: the panel in each tour state, the app icon and the social preview.
     static func renderSiteAssets(controller: AwakeController) async {
-        let arguments = CommandLine.arguments
-        guard let flag = arguments.firstIndex(of: "--render-site"), flag + 1 < arguments.count else { return }
-        let directory = URL(fileURLWithPath: arguments[flag + 1], isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        guard let directory = outputDirectory(flag: "--render-site") else { return }
         await controller.rescanAgents()
 
         let others = [
@@ -63,10 +60,7 @@ enum DemoRenderer {
             if let icon = SnapshotRenderer.bitmap(of: AppIconArt(), transparent: true)?.cgImage {
                 try writePNG(scaled(icon, CGSize(width: 1024, height: 1024)), to: directory.appendingPathComponent("app-icon-1024.png"))
             }
-            controller.applyDemo(scenes[1].state(Date()))
-            if let social = SnapshotRenderer.bitmap(of: SocialPreview(controller: controller))?.cgImage {
-                try writePNG(scaled(social, CGSize(width: 1280, height: 640)), to: directory.appendingPathComponent("social-preview.png"))
-            }
+            try writeSocialPreview(controller: controller, to: directory)
         } catch {
             FileHandle.standardError.write(Data("Site rendering failed: \(error)\n".utf8))
             SnapshotRenderer.finish(status: 1)
@@ -75,10 +69,7 @@ enum DemoRenderer {
     }
 
     static func runIfRequested(controller: AwakeController) async {
-        let arguments = CommandLine.arguments
-        guard let flag = arguments.firstIndex(of: "--render-demo"), flag + 1 < arguments.count else { return }
-        let directory = URL(fileURLWithPath: arguments[flag + 1], isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        guard let directory = outputDirectory(flag: "--render-demo") else { return }
         await controller.rescanAgents()
 
         var videoFrames: [(CGImage, Int)] = []
@@ -111,16 +102,29 @@ enum DemoRenderer {
             try await writeMP4(videoFrames, size: videoSize, to: directory.appendingPathComponent("demo.mp4"))
             try writeGIF(gifFrames, to: directory.appendingPathComponent("demo.gif"))
             if let poster { try writePNG(poster, to: directory.appendingPathComponent("demo-poster.png")) }
-            // Claude Code working (green) next to Cursor open but idle (blue).
-            controller.applyDemo(scenes[1].state(Date()))
-            if let social = SnapshotRenderer.bitmap(of: SocialPreview(controller: controller))?.cgImage {
-                try writePNG(scaled(social, CGSize(width: 1280, height: 640)), to: directory.appendingPathComponent("social-preview.png"))
-            }
+            try writeSocialPreview(controller: controller, to: directory)
         } catch {
             FileHandle.standardError.write(Data("Demo rendering failed: \(error)\n".utf8))
             SnapshotRenderer.finish(status: 1)
         }
         SnapshotRenderer.finish(status: 0)
+    }
+
+    /// The directory after `flag` on the command line, created if needed.
+    static func outputDirectory(flag: String) -> URL? {
+        let arguments = CommandLine.arguments
+        guard let index = arguments.firstIndex(of: flag), index + 1 < arguments.count else { return nil }
+        let directory = URL(fileURLWithPath: arguments[index + 1], isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    /// Claude Code working (green) next to Cursor open but idle (blue).
+    private static func writeSocialPreview(controller: AwakeController, to directory: URL) throws {
+        controller.applyDemo(scenes[1].state(Date()))
+        if let social = SnapshotRenderer.bitmap(of: SocialPreview(controller: controller))?.cgImage {
+            try writePNG(scaled(social, CGSize(width: 1280, height: 640)), to: directory.appendingPathComponent("social-preview.png"))
+        }
     }
 
     // MARK: Storyboard

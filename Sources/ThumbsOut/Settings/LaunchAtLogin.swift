@@ -11,11 +11,14 @@ enum LaunchAtLogin {
         SMAppService.mainApp.status == .requiresApproval
     }
 
-    static func setEnabled(_ enabled: Bool) throws {
-        if enabled {
-            try SMAppService.mainApp.register()
-        } else {
-            try SMAppService.mainApp.unregister()
+    /// Registers or unregisters the login item if needed. Returns a message for the user on failure.
+    static func setEnabled(_ enabled: Bool) -> String? {
+        guard enabled != isEnabled else { return nil }
+        do {
+            try enabled ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
+            return nil
+        } catch {
+            return "Couldn't change the login item: \(error.localizedDescription)"
         }
     }
 }

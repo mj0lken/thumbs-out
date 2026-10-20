@@ -113,15 +113,8 @@ struct OnboardingView: View {
     }
 
     private func complete() {
-        if launchAtLogin != LaunchAtLogin.isEnabled {
-            do {
-                try LaunchAtLogin.setEnabled(launchAtLogin)
-            } catch {
-                launchAtLoginError = "Couldn't change the login item: \(error.localizedDescription)"
-                return
-            }
-        }
-        finish()
+        launchAtLoginError = LaunchAtLogin.setEnabled(launchAtLogin)
+        if launchAtLoginError == nil { finish() }
     }
 }
 
@@ -182,7 +175,6 @@ private struct WelcomeStep: View {
 
 private struct AgentsStep: View {
     let controller: AwakeController
-    @State private var isScanning = false
 
     var body: some View {
         let foundAgents = AgentCatalog.found(in: .agent, controller: controller)
@@ -203,15 +195,8 @@ private struct AgentsStep: View {
                 }
             }
             .scrollIndicators(.automatic)
-            Button(isScanning ? "Scanning…" : "Scan Again") {
-                Task {
-                    isScanning = true
-                    await controller.rescanAgents()
-                    isScanning = false
-                }
-            }
-            .disabled(isScanning)
-            .padding(.top, 12)
+            ScanAgainButton(controller: controller)
+                .padding(.top, 12)
         }
         .task { await controller.rescanAgents() }
     }
@@ -289,10 +274,7 @@ private struct LidStep: View {
                 SwitchRow(
                     title: "Stay awake with the lid closed",
                     subtitle: controller.lid.isBusy ? "Waiting for your password…" : "Asks for your admin password once.",
-                    isOn: Binding(
-                        get: { controller.lid.isBusy || (isEnabled && controller.lid.isSetUp) },
-                        set: { newValue in Task { await controller.setLidClosedMode(newValue) } }
-                    ),
+                    isOn: controller.lidModeSwitch(isEnabled: isEnabled),
                     tint: Theme.lid
                 )
                 .disabled(controller.lid.isBusy)

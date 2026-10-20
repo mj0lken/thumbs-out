@@ -16,8 +16,6 @@ final class SleepAssertion {
     private var assertionID: IOPMAssertionID = IOPMAssertionID(0)
     private var current: (kind: Kind, reason: String)?
 
-    var isHeld: Bool { current != nil }
-
     /// Takes (or swaps to) an assertion. Display assertions also keep the system awake.
     func hold(keepDisplayAwake: Bool, reason: String) {
         let kind: Kind = keepDisplayAwake ? .display : .system

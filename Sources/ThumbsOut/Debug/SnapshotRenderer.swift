@@ -7,10 +7,7 @@ import SwiftUI
 @MainActor
 enum SnapshotRenderer {
     static func runIfRequested(controller: AwakeController) async {
-        let arguments = CommandLine.arguments
-        guard let flag = arguments.firstIndex(of: "--render-snapshots"), flag + 1 < arguments.count else { return }
-        let directory = URL(fileURLWithPath: arguments[flag + 1], isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        guard let directory = DemoRenderer.outputDirectory(flag: "--render-snapshots") else { return }
         await controller.loadSnapshotState()
 
         for scheme in [ColorScheme.light, .dark] {

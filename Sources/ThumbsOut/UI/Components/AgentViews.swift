@@ -167,3 +167,20 @@ enum AgentCatalog {
         }
     }
 }
+
+/// Rescans for installed agents, showing progress while it runs.
+struct ScanAgainButton: View {
+    let controller: AwakeController
+    @State private var isScanning = false
+
+    var body: some View {
+        Button(isScanning ? "Scanning…" : "Scan Again") {
+            Task {
+                isScanning = true
+                await controller.rescanAgents()
+                isScanning = false
+            }
+        }
+        .disabled(isScanning)
+    }
+}

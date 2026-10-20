@@ -8,10 +8,7 @@ public enum GracePeriodScale {
     }
 
     public static func label(for value: Int) -> String {
-        guard value >= 60 else { return "\(max(value, 0))m" }
-        let hours = value / 60
-        let rest = value % 60
-        return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
+        AwakeStats.format(Double(value * 60))
     }
 
     /// Fractional stop index for any number of minutes, linear between neighbouring stops.

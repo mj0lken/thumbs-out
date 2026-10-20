@@ -16,7 +16,6 @@ enum SettingsKey {
 
 /// A snapshot of the user's settings, read once per detection tick.
 struct AppSettings: Equatable {
-    static let gracePeriodChoices = [0, 1, 2, 5, 10, 15, 30]
     static let pollIntervalRange = 2...60
     static let minimumBatteryChoices = [10, 20, 30, 50]
 

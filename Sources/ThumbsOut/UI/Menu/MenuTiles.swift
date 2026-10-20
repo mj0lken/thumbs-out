@@ -22,20 +22,13 @@ struct LidTile: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 4)
-            AppSwitch(title: "Stay awake with lid closed", isOn: binding, tint: Theme.lid, isSmall: true)
+            AppSwitch(title: "Stay awake with lid closed", isOn: controller.lidModeSwitch(isEnabled: isEnabled), tint: Theme.lid, isSmall: true)
                 .disabled(controller.lid.isBusy)
         }
         .tile()
     }
 
     private var isActive: Bool { controller.lidDecision.disablesLidSleep }
-
-    private var binding: Binding<Bool> {
-        Binding(
-            get: { controller.lid.isBusy || (isEnabled && controller.lid.isSetUp) },
-            set: { newValue in Task { await controller.setLidClosedMode(newValue) } }
-        )
-    }
 
     private var detail: String {
         if controller.lid.isBusy { return "Waiting for your password…" }
@@ -46,6 +39,16 @@ struct LidTile: View {
         }
         if isActive { return StatusPresentation.lidLine(for: controller.lidBehavior) }
         return StatusPresentation.lidModeNote(for: controller.lidDecision) ?? "Ready: kicks in while agents work"
+    }
+}
+
+extension AwakeController {
+    /// The lid-closed mode switch: on while setup runs, then on when the mode is enabled and set up.
+    func lidModeSwitch(isEnabled: Bool) -> Binding<Bool> {
+        Binding(
+            get: { self.lid.isBusy || (isEnabled && self.lid.isSetUp) },
+            set: { newValue in Task { await self.setLidClosedMode(newValue) } }
+        )
     }
 }
 

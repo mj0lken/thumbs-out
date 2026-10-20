@@ -42,7 +42,7 @@ struct MenuPanel: View {
                 Spacer()
                 Text(GracePeriodScale.label(for: gracePeriodMinutes))
                     .font(.tileTitle.monospacedDigit())
-                    .foregroundStyle(Theme.working)
+                    .foregroundStyle(Theme.workingInk)
                     .contentTransition(.numericText())
             }
             GraceMeter(minutes: $gracePeriodMinutes, remainingMinutes: remainingGraceMinutes)
@@ -64,7 +64,7 @@ private struct StatusHeader: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ThumbBadge(color: Theme.color(for: controller.decision), isFilled: controller.decision.keepsAwake)
+            ThumbBadge(color: Theme.badgeColor(for: controller.decision))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.panelTitle)
                 Text(subtitle)

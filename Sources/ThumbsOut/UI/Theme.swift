@@ -1,10 +1,15 @@
 import SwiftUI
 import ThumbsOutCore
 
-/// Design tokens. Colour is semantic: green = an agent is working, amber = grace period,
-/// indigo = lid-closed mode, grey = idle.
+/// Design tokens. The brand pairs "awake" green with "night" ink, matching the logo. Colour is
+/// semantic: green = an agent is working, amber = grace period, indigo = lid-closed mode, grey = idle.
 enum Theme {
-    static let working = Color(red: 0.19, green: 0.78, blue: 0.40)
+    /// Brand green (#34E07F): fills, dots and the logo's thumb.
+    static let working = Color(red: 0.204, green: 0.878, blue: 0.498)
+    /// Darker brand green (#0F8F47) for text and buttons with white labels, where contrast matters.
+    static let workingInk = Color(red: 0.059, green: 0.561, blue: 0.278)
+    /// Brand contrast colour (#15142B): the logo's badge.
+    static let night = Color(red: 0.082, green: 0.078, blue: 0.169)
     static let grace = Color(red: 1.0, green: 0.62, blue: 0.05)
     static let lid = Color.indigo
     static let running = Color.blue
@@ -25,6 +30,11 @@ enum Theme {
         case .gracePeriod: grace
         case .sleepAllowed: idle
         }
+    }
+
+    /// The thumb's colour on the night badge; idle uses a light grey that reads on dark.
+    static func badgeColor(for decision: AwakeDecision) -> Color {
+        decision.keepsAwake ? color(for: decision) : Color(white: 0.62)
     }
 
     static func color(for status: AgentStatus) -> Color {
@@ -60,25 +70,6 @@ struct TileBackground: ViewModifier {
 
 extension View {
     func tile() -> some View { modifier(TileBackground()) }
-}
-
-/// The app's badge: a thumbs-up on a tinted rounded square.
-struct ThumbBadge: View {
-    let color: Color
-    var size: CGFloat = 40
-    var isFilled = true
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-            .fill(color.gradient)
-            .frame(width: size, height: size)
-            .overlay(
-                Image(systemName: isFilled ? "hand.thumbsup.fill" : "hand.thumbsup")
-                    .font(.system(size: size * 0.46, weight: .semibold))
-                    .foregroundStyle(.white)
-            )
-            .shadow(color: color.opacity(0.35), radius: size * 0.15, y: size * 0.05)
-    }
 }
 
 /// Icon-only button with a designed hover state.

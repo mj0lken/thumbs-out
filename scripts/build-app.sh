@@ -15,6 +15,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/ThumbsOut" "$APP/Contents/MacOS/ThumbsOut"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 # Ad-hoc signature: enough to run locally and to register as a login item.
 codesign --force --sign - "$APP"

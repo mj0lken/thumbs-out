@@ -87,7 +87,7 @@ struct OnboardingView: View {
             }
             .keyboardShortcut(.defaultAction)
             .buttonStyle(.borderedProminent)
-            .tint(Theme.working)
+            .tint(Theme.workingInk)
         }
         .controlSize(.large)
         .padding(.horizontal, 24)
@@ -254,7 +254,7 @@ private struct AwakeStep: View {
                     Spacer()
                     Text(GracePeriodScale.label(for: gracePeriodMinutes))
                         .font(.statValue)
-                        .foregroundStyle(Theme.working)
+                        .foregroundStyle(Theme.workingInk)
                         .contentTransition(.numericText())
                 }
                 GraceMeter(minutes: $gracePeriodMinutes)

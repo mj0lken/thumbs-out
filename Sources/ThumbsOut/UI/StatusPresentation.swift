@@ -3,14 +3,6 @@ import ThumbsOutCore
 
 /// Text and icons for the menu bar, derived from the controller's state.
 enum StatusPresentation {
-    static func symbolName(for decision: AwakeDecision, lidSleepDisabled: Bool) -> String {
-        switch decision {
-        case .sleepAllowed: "hand.thumbsup"
-        case .gracePeriod: "hand.thumbsup.circle"
-        case .agentsActive, .manual: lidSleepDisabled ? "hand.thumbsup.circle.fill" : "hand.thumbsup.fill"
-        }
-    }
-
     static func lidLine(for behavior: LidClosedBehavior) -> String {
         switch behavior {
         case .sleeps: "Off: the Mac sleeps when you close it"

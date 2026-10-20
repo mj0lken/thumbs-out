@@ -135,6 +135,7 @@ struct PanelFooter: View {
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
+            .tint(Theme.workingInk)
             .fixedSize()
             .padding(.leading, 4)
 

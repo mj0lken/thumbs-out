@@ -39,7 +39,7 @@ struct GraceMeter: View {
                 ForEach(stops.indices, id: \.self) { index in
                     Text(GracePeriodScale.tickLabel(for: stops[index]))
                         .font(.system(size: 9, weight: index == selectedIndex ? .bold : .regular).monospacedDigit())
-                        .foregroundStyle(index == selectedIndex ? AnyShapeStyle(tint) : AnyShapeStyle(.tertiary))
+                        .foregroundStyle(index == selectedIndex ? AnyShapeStyle(Theme.workingInk) : AnyShapeStyle(.tertiary))
                         .fixedSize()
                         .position(x: knobSize / 2 + CGFloat(index) * step, y: 6)
                 }

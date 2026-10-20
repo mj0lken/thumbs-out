@@ -24,6 +24,56 @@ enum DemoRenderer {
     private static let videoSize = CGSize(width: 1650, height: 1140)
     private static let gifSize = CGSize(width: 720, height: 497)
 
+    /// `--render-site <dir>`: the panel in each tour state, the app icon and the social preview.
+    static func renderSiteAssets(controller: AwakeController) async {
+        let arguments = CommandLine.arguments
+        guard let flag = arguments.firstIndex(of: "--render-site"), flag + 1 < arguments.count else { return }
+        let directory = URL(fileURLWithPath: arguments[flag + 1], isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        await controller.rescanAgents()
+
+        let others = [
+            SleepBlocker(processName: "Music", reasons: ["com.apple.audio.BuiltInSpeakerDevice"], keepsDisplayOn: false),
+            SleepBlocker(processName: "Zoom", reasons: ["Meeting in progress"], keepsDisplayOn: true),
+        ]
+        let states: [(String, Int, Double?)] = [("idle", 0, nil), ("working", 1, nil), ("grace", 4, 3.4), ("lid", 3, nil)]
+        do {
+            for (name, index, graceMinutes) in states {
+                let now = Date()
+                var state = scenes[index].state(now)
+                if let graceMinutes { state.decision = .gracePeriod(until: now.addingTimeInterval(graceMinutes * 60)) }
+                if name != "idle" { state.blockers = others }
+                controller.applyDemo(state)
+                let panel = MenuPanel(controller: controller) {}
+                    .background(Color(white: 0.965), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .padding(1)
+                if let image = SnapshotRenderer.bitmap(of: panel, transparent: true)?.cgImage {
+                    try writePNG(image, to: directory.appendingPathComponent("panel-\(name).png"))
+                }
+            }
+            for (name, decision, lid) in [("menubar-idle", AwakeDecision.sleepAllowed, false),
+                                          ("menubar-awake", AwakeDecision.agentsActive([.claudeCode]), false),
+                                          ("menubar-lid", AwakeDecision.agentsActive([.claudeCode]), true)] {
+                let glyph = MenuBarGlyph.image(for: decision, lidSleepDisabled: lid)
+                if let cg = glyph.cgImage(forProposedRect: nil, context: nil, hints: [.ctm: AffineTransform(scale: 4)]) {
+                    try writePNG(cg, to: directory.appendingPathComponent("\(name).png"))
+                }
+            }
+            if let icon = SnapshotRenderer.bitmap(of: AppIconArt(), transparent: true)?.cgImage {
+                try writePNG(scaled(icon, CGSize(width: 1024, height: 1024)), to: directory.appendingPathComponent("app-icon-1024.png"))
+            }
+            controller.applyDemo(scenes[1].state(Date()))
+            if let social = SnapshotRenderer.bitmap(of: SocialPreview(controller: controller))?.cgImage {
+                try writePNG(scaled(social, CGSize(width: 1280, height: 640)), to: directory.appendingPathComponent("social-preview.png"))
+            }
+        } catch {
+            FileHandle.standardError.write(Data("Site rendering failed: \(error)\n".utf8))
+            SnapshotRenderer.finish(status: 1)
+        }
+        SnapshotRenderer.finish(status: 0)
+    }
+
     static func runIfRequested(controller: AwakeController) async {
         let arguments = CommandLine.arguments
         guard let flag = arguments.firstIndex(of: "--render-demo"), flag + 1 < arguments.count else { return }
@@ -155,7 +205,7 @@ enum DemoRenderer {
         return context
     }
 
-    private static func scaled(_ image: CGImage, _ size: CGSize) -> CGImage {
+    static func scaled(_ image: CGImage, _ size: CGSize) -> CGImage {
         guard let context = context(size) else { return image }
         context.draw(image, in: CGRect(origin: .zero, size: size))
         return context.makeImage() ?? image
@@ -237,7 +287,7 @@ enum DemoRenderer {
         guard CGImageDestinationFinalize(destination) else { throw CocoaError(.fileWriteUnknown) }
     }
 
-    private static func writePNG(_ image: CGImage, to url: URL) throws {
+    static func writePNG(_ image: CGImage, to url: URL) throws {
         guard let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
         else { throw CocoaError(.fileWriteUnknown) }
         try data.write(to: url)

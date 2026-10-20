@@ -5,7 +5,7 @@ import ThumbsOutCore
 /// Brand colours shared with the landing page (docs/site.css).
 enum DemoPalette {
     static let paper = Color(red: 0.965, green: 0.953, blue: 0.925)
-    static let ink = Color(red: 0.086, green: 0.075, blue: 0.059)
+    static let ink = Theme.night
     static let wallpaperTop = Color(red: 0.86, green: 0.94, blue: 0.88)
     static let wallpaperBottom = Color(red: 0.86, green: 0.87, blue: 0.98)
 }
@@ -48,11 +48,11 @@ struct DemoCanvas: View {
                 Text($0).font(.system(size: 13))
             }
             Spacer()
-            Image(systemName: StatusPresentation.symbolName(
+            Image(nsImage: MenuBarGlyph.image(
                 for: controller.decision, lidSleepDisabled: controller.lidDecision.disablesLidSleep
             ))
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(controller.decision.keepsAwake ? Theme.working : DemoPalette.ink)
+            .renderingMode(.template)
+            .foregroundStyle(DemoPalette.ink)
             .frame(width: 30, height: 22)
             .background(Color.black.opacity(0.08), in: RoundedRectangle(cornerRadius: 5))
             Image(systemName: "wifi").font(.system(size: 13, weight: .semibold))
@@ -110,7 +110,7 @@ struct SocialPreview: View {
                 Spacer()
                 Text("Free & open source · macOS menu bar app")
                     .font(.system(size: 20, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.working)
+                    .foregroundStyle(Theme.workingInk)
             }
             .padding(.leading, 72)
             .padding(.vertical, 64)
@@ -124,6 +124,13 @@ struct SocialPreview: View {
         }
         .frame(width: 1280, height: 640)
         .clipped()
+    }
+}
+/// The app icon: the badge on Apple's icon grid (412 pt body in a 512 pt / 1024 px canvas).
+struct AppIconArt: View {
+    var body: some View {
+        ThumbBadge(color: Theme.working, size: 412)
+            .frame(width: 512, height: 512)
     }
 }
 #endif

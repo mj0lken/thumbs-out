@@ -41,7 +41,9 @@ enum SnapshotRenderer {
     }
 
     /// Lays a view out in an offscreen window and captures it at the display's backing scale.
-    static func bitmap(of view: some View, scheme: ColorScheme = .light, settle: TimeInterval = 0.3) -> NSBitmapImageRep? {
+    static func bitmap(
+        of view: some View, scheme: ColorScheme = .light, settle: TimeInterval = 0.3, transparent: Bool = false
+    ) -> NSBitmapImageRep? {
         let hosting = NSHostingView(
             rootView: view.environment(\.colorScheme, scheme).environment(\.rendersStaticControls, true)
         )
@@ -52,7 +54,9 @@ enum SnapshotRenderer {
             styleMask: [.borderless], backing: .buffered, defer: false
         )
         window.appearance = hosting.appearance
-        window.backgroundColor = scheme == .dark ? NSColor(white: 0.16, alpha: 1) : NSColor(white: 0.96, alpha: 1)
+        window.backgroundColor = transparent ? .clear
+            : scheme == .dark ? NSColor(white: 0.16, alpha: 1) : NSColor(white: 0.96, alpha: 1)
+        window.isOpaque = !transparent
         window.contentView = hosting
         window.orderFrontRegardless()
         hosting.layoutSubtreeIfNeeded()

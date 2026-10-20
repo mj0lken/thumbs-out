@@ -9,7 +9,7 @@ struct ThumbsOutApp: App {
         MenuBarExtra {
             MenuPanel(controller: appDelegate.controller) { appDelegate.windows.showSettings() }
         } label: {
-            Image(systemName: StatusPresentation.symbolName(
+            Image(nsImage: MenuBarGlyph.image(
                 for: appDelegate.controller.decision,
                 lidSleepDisabled: appDelegate.controller.lidDecision.disablesLidSleep
             ))
@@ -28,6 +28,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
         if CommandLine.arguments.contains("--render-snapshots") {
             Task { await SnapshotRenderer.runIfRequested(controller: controller) }
+            return
+        }
+        if CommandLine.arguments.contains("--render-site") {
+            Task { await DemoRenderer.renderSiteAssets(controller: controller) }
             return
         }
         if CommandLine.arguments.contains("--render-demo") {

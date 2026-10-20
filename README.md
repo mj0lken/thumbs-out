@@ -12,8 +12,9 @@ with the lid closed.
 </p>
 
 **[Website](https://mj0lken.github.io/thumbs-out/)** ·
-**[Download for Apple Silicon](https://github.com/mj0lken/thumbs-out/releases/latest)** · macOS 15
-or later · free and open source (MIT)
+**[Download for Apple Silicon](https://github.com/mj0lken/thumbs-out/releases/latest)** ·
+**[Check compatibility](https://mj0lken.github.io/thumbs-out/#compat)** · macOS 15 or later · free
+and open source (MIT)
 
 ## Install
 
@@ -33,6 +34,10 @@ brew install --cask mj0lken/tap/thumbs-out
    **Open Anyway** next to thumbs-out. You only do this once.
 3. The welcome window walks you through which agents were found, the grace period, lid-closed mode
    and launch at login.
+
+Not sure your Mac qualifies? The [compatibility check](https://mj0lken.github.io/thumbs-out/#compat)
+looks at your chip and macOS version in the browser, or run `sw_vers -productVersion; uname -m` in
+Terminal: you need 15 or higher, and `arm64`.
 
 Prefer to build it yourself? See [Build and run](#build-and-run).
 
@@ -140,7 +145,8 @@ Requires an Apple Silicon Mac with macOS 15+, and Xcode (Swift 6) to build.
 ./scripts/build-app.sh --install  # also copies it to /Applications and launches it
 swift test                        # runs the core tests
 swift build && .build/debug/ThumbsOut --render-snapshots /tmp/snaps   # PNGs of every screen (debug only)
-.build/debug/ThumbsOut --render-demo docs/images   # demo.mp4/.gif, poster and social preview (debug only)
+.build/debug/ThumbsOut --render-demo docs/images   # demo GIF (debug only)
+.build/debug/ThumbsOut --render-site docs/images   # tour panels, app icon, social preview (debug only)
 ```
 
 For **Launch at login** to work reliably, install the app to `/Applications` first. macOS may ask

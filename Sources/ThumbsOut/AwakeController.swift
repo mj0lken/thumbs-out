@@ -270,6 +270,7 @@ final class AwakeController {
         var running: Set<Agent>
         var lidActive: Bool
         var stats: AwakeStats
+        var blockers: [SleepBlocker] = []
     }
 
     func applyDemo(_ state: DemoState) {
@@ -282,6 +283,7 @@ final class AwakeController {
         lidDecision = state.lidActive ? .disableLidSleep : .allowLidSleep(.notNeeded)
         power.sleepDisabled = state.lidActive
         power.hasLid = true
+        power.blockers = state.blockers
     }
 
     /// Snapshot variant: a desktop Mac (mini, Studio, iMac) with no lid and no battery.

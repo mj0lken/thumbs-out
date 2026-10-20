@@ -103,7 +103,11 @@ struct OnboardingView: View {
     }
 
     private func move(by offset: Int) {
-        guard let next = Step(rawValue: step.rawValue + offset) else { return }
+        guard var next = Step(rawValue: step.rawValue + offset) else { return }
+        // Desktop Macs have no lid: skip that step.
+        if next == .lid, !controller.power.hasLid, let skipped = Step(rawValue: next.rawValue + offset) {
+            next = skipped
+        }
         isMovingForward = offset > 0
         withAnimation(.snappy(duration: 0.28)) { step = next }
     }
@@ -181,24 +185,24 @@ private struct AgentsStep: View {
     @State private var isScanning = false
 
     var body: some View {
-        let foundCount = Agent.allCases.filter { controller.status(for: $0).isFound }.count
+        let foundAgents = AgentCatalog.found(in: .agent, controller: controller)
         VStack(alignment: .leading, spacing: 0) {
             StepHeader(
                 symbol: "magnifyingglass", tint: Theme.running,
-                title: foundCount == 0 ? "No agents found yet" : "Found \(foundCount) of \(Agent.allCases.count) agents",
-                subtitle: "thumbs-out watches the agents that are switched on. Ones you install later are picked up automatically."
+                title: foundAgents.isEmpty ? "No agents found yet" : "Found \(foundAgents.count) agents on this Mac",
+                subtitle: "thumbs-out watches the ones that are switched on, and picks up agents you install later."
             )
-            VStack(spacing: 14) {
-                ForEach(Agent.allCases) { agent in
-                    AgentCoverageRow(
-                        agent: agent,
-                        status: controller.status(for: agent),
-                        installations: controller.installations(for: agent)
-                    )
-                    if agent != Agent.allCases.last { Divider() }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(Agent.Category.allCases, id: \.self) { category in
+                        let found = AgentCatalog.found(in: category, controller: controller)
+                        if !found.isEmpty {
+                            categoryGroup(category, agents: found)
+                        }
+                    }
                 }
             }
-            .tile()
+            .scrollIndicators(.automatic)
             Button(isScanning ? "Scanning…" : "Scan Again") {
                 Task {
                     isScanning = true
@@ -210,6 +214,26 @@ private struct AgentsStep: View {
             .padding(.top, 12)
         }
         .task { await controller.rescanAgents() }
+    }
+
+    private func categoryGroup(_ category: Agent.Category, agents: [Agent]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(category.title).font(.sectionLabel).foregroundStyle(.secondary)
+            VStack(spacing: 12) {
+                ForEach(agents) { agent in
+                    AgentCoverageRow(
+                        agent: agent,
+                        status: controller.status(for: agent),
+                        installations: controller.installations(for: agent)
+                    )
+                    if agent != agents.last { Divider() }
+                }
+            }
+            .tile()
+            if category != .agent {
+                Text(AgentCatalog.footer(for: category)).font(.caption).foregroundStyle(.secondary)
+            }
+        }
     }
 }
 

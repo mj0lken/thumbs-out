@@ -15,6 +15,7 @@ public enum LidClosedDecision: Sendable, Equatable {
 
     public enum Reason: Sendable, Equatable {
         case turnedOff
+        case noLid
         case setupRequired
         case notNeeded
         case lowBattery(Int)
@@ -29,10 +30,12 @@ public enum LidClosedPolicy {
         keepsAwake: Bool,
         isEnabled: Bool,
         isSetUp: Bool,
+        hasLid: Bool,
         power: PowerStatus,
         minimumBatteryPercent: Int
     ) -> LidClosedDecision {
         guard isEnabled else { return .allowLidSleep(.turnedOff) }
+        guard hasLid else { return .allowLidSleep(.noLid) }
         guard isSetUp else { return .allowLidSleep(.setupRequired) }
         guard keepsAwake else { return .allowLidSleep(.notNeeded) }
         if power.isOnBattery, let percent = power.batteryPercent, percent < minimumBatteryPercent {

@@ -24,8 +24,10 @@ struct MenuPanel: View {
             StatsStrip(stats: controller.stats, isAwake: controller.decision.keepsAwake)
             AgentsTile(controller: controller)
             graceTile
-            LidTile(controller: controller)
-            BlockersTile(blockers: controller.power.blockers)
+            if controller.power.hasLid {
+                LidTile(controller: controller)
+            }
+            BlockersTile(blockers: controller.power.blockers, hasLid: controller.power.hasLid)
             PanelFooter(controller: controller, openSettings: openSettings)
         }
         .padding(Theme.panelPadding)
@@ -135,11 +137,24 @@ private struct AgentsTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Agents").font(.sectionLabel).foregroundStyle(.secondary)
-            ForEach(Agent.allCases) { agent in
+            if visibleAgents.isEmpty {
+                Text("No agents found yet. Install one and it shows up here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(visibleAgents) { agent in
                 AgentMenuRow(agent: agent, controller: controller)
             }
         }
         .tile()
+    }
+
+    /// Agents that are installed, plus editors and local models only once switched on.
+    private var visibleAgents: [Agent] {
+        Agent.allCases.filter { agent in
+            controller.status(for: agent).isFound
+                && (agent.category == .agent || controller.watchedAgents.contains(agent))
+        }
     }
 }
 
@@ -151,7 +166,7 @@ private struct AgentMenuRow: View {
     init(agent: Agent, controller: AwakeController) {
         self.agent = agent
         self.controller = controller
-        _isWatched = AppStorage(wrappedValue: true, SettingsKey.watch(agent))
+        _isWatched = AppStorage(wrappedValue: agent.isWatchedByDefault, SettingsKey.watch(agent))
     }
 
     var body: some View {
@@ -177,6 +192,6 @@ private struct AgentMenuRow: View {
             StatusDot(status: status, isWatched: isWatched)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityValue(AgentStatusText.badge(for: status))
+        .accessibilityValue(AgentStatusText.badge(for: status, agent: agent))
     }
 }

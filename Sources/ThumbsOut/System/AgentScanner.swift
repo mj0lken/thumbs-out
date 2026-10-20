@@ -20,7 +20,7 @@ enum AgentScanner {
             agent.bundleIdentifiers
                 .flatMap { NSWorkspace.shared.urlsForApplications(withBundleIdentifier: $0) }
                 .map(\.path)
-                .filter { !known.contains($0) && !$0.contains("/.Trash/") }
+                .filter { !known.contains($0) && AgentDiscovery.isUserFacingApp(path: $0) }
                 .map { path in
                     AgentInstallation(
                         agent: agent, kind: .app, name: ProcessDisplayName.from(path: path) + " app", path: path

@@ -56,6 +56,7 @@ struct LidTile: View {
 /// Other apps currently keeping the Mac awake, collapsed by default.
 struct BlockersTile: View {
     let blockers: [SleepBlocker]
+    var hasLid = true
     @State private var isExpanded = false
 
     var body: some View {
@@ -100,9 +101,11 @@ struct BlockersTile: View {
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
-                Text("These don't keep the Mac awake once the lid is closed.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                if hasLid {
+                    Text("These don't keep the Mac awake once the lid is closed.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
         .tile()

@@ -21,6 +21,9 @@ enum SnapshotRenderer {
                 render(OnboardingView(controller: controller, initialStep: step) {}, scheme, directory, "onboarding-\(step.rawValue)-\(suffix)")
             }
         }
+        controller.simulateDesktopMac()
+        render(MenuPanel(controller: controller) {}.background(.regularMaterial), .light, directory, "menu-desktop")
+        render(SettingsView(controller: controller) {}.frame(width: 520, height: 1500), .light, directory, "settings-desktop")
         exit(0)
     }
 

@@ -6,12 +6,18 @@ struct LidClosedPolicyTests {
     let onPower = PowerStatus(isOnBattery: false, batteryPercent: 15)
 
     func decide(
-        keepsAwake: Bool = true, enabled: Bool = true, setUp: Bool = true,
+        keepsAwake: Bool = true, enabled: Bool = true, setUp: Bool = true, hasLid: Bool = true,
         power: PowerStatus = PowerStatus(isOnBattery: true, batteryPercent: 80)
     ) -> LidClosedDecision {
         LidClosedPolicy.decide(
-            keepsAwake: keepsAwake, isEnabled: enabled, isSetUp: setUp, power: power, minimumBatteryPercent: 20
+            keepsAwake: keepsAwake, isEnabled: enabled, isSetUp: setUp, hasLid: hasLid, power: power,
+            minimumBatteryPercent: 20
         )
+    }
+
+    @Test("desktop Macs have no lid, so the switch is never touched")
+    func noLid() {
+        #expect(decide(hasLid: false) == .allowLidSleep(.noLid))
     }
 
     @Test("disables lid sleep while staying awake")

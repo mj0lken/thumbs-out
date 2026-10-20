@@ -4,13 +4,18 @@ A small macOS menu bar app that keeps your Mac awake while AI coding agents are 
 like Amphetamine but automatic. Named after the people walking around with half-open MacBooks so
 their agents keep running.
 
-Watched agents:
+What it watches, in three tiers:
 
-| Agent | Detected as |
-|-------|-------------|
-| Claude Code | the `claude` CLI (standalone, npm, or the copy inside the Claude desktop app) |
-| ChatGPT / Codex | `ChatGPT.app`, `Codex.app`, the `codex` CLI |
-| Antigravity | `Antigravity.app` / `Antigravity IDE.app` and its helpers |
+| Tier | Entries | Default |
+|------|---------|---------|
+| **Agents** | Claude Code (CLI, npm, Claude desktop app's Code tab, IDE extensions), ChatGPT / Codex, Antigravity / Gemini CLI, Cursor (app + `cursor-agent`), Windsurf, Kiro, GitHub Copilot CLI, OpenCode, Aider, Goose, Amp, Factory Droid, Qwen Code, Crush | On |
+| **Editors & terminals** | VS Code (Copilot, Cline and other extensions), Zed, Warp | Off: every command typed in them counts too |
+| **Local models** | Ollama, LM Studio | Off: counted as busy while generating, by CPU use |
+
+The list is a data-driven catalog in `Sources/ThumbsOutCore/Agent.swift`; supporting a new agent is
+one entry (process names, app bundle, CLI names). Commands are credited to the innermost agent, so
+Claude Code running inside VS Code counts as Claude Code, and an idle agent session sitting in a
+terminal doesn't count as a running command.
 
 ## How it works
 
@@ -102,6 +107,20 @@ Check what it's doing:
 pmset -g assertions | grep thumbs-out
 pmset -g | grep -i sleepdisabled
 ```
+
+## Compatibility
+
+| | Status |
+|---|---|
+| **macOS** | 14 Sonoma or later (both slices are built with `minos 14.0`). Going lower would mean replacing the Observation framework and other macOS 14 APIs; macOS 13 and older no longer get Apple security updates. |
+| **Apple Silicon** | Native. Developed and tested on an M4 Pro, macOS 26. |
+| **Intel Macs** | Universal binary. All tests pass as Intel code under Rosetta, and the Intel build launches and renders there. Not yet run on real Intel hardware. macOS 26 Tahoe is the last release for Intel Macs. |
+| **Rosetta** | If the Intel build runs on Apple Silicon, CPU times from the kernel stay in native ticks while the reported timebase is 1/1; thumbs-out detects translation and corrects for it. |
+| **Desktop Macs** (mini, Studio, iMac, Pro) | No lid is detected (no `AppleClamshellState`), so lid-closed mode is hidden everywhere and skipped in onboarding. No battery means no battery threshold. Not yet tested on desktop hardware. |
+| **MacBook Air** | Fanless, so it heats up faster with the lid closed. Same heat warning applies. |
+
+Macs that run macOS 14: MacBook Air and MacBook Pro 2018 and later, Mac mini 2018+, iMac 2019+,
+iMac Pro, Mac Pro 2019+ and Mac Studio.
 
 ## Limitations
 

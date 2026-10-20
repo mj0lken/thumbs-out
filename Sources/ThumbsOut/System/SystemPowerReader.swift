@@ -9,6 +9,8 @@ struct SystemPowerState: Sendable, Equatable {
     /// False in Apple's clamshell mode (power + external display) or when sleep is disabled.
     var clamshellCausesSleep = true
     var sleepDisabled = false
+    /// Desktop Macs (mini, Studio, iMac, Pro) have no lid, so lid-closed mode doesn't apply.
+    var hasLid = true
     var power = PowerStatus(isOnBattery: false, batteryPercent: nil)
 }
 
@@ -20,6 +22,9 @@ enum SystemPowerReader {
             blockers: blockers(),
             clamshellCausesSleep: boolProperty("AppleClamshellCausesSleep", of: root) ?? true,
             sleepDisabled: boolProperty("SleepDisabled", of: root) ?? false,
+            // The clamshell state is only published on Macs that have a lid. If the power domain
+            // can't be read at all, assume a lid rather than hiding the controls.
+            hasLid: root == 0 || boolProperty("AppleClamshellState", of: root) != nil,
             power: powerStatus()
         )
     }

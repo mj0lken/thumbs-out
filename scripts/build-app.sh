@@ -6,8 +6,10 @@ cd "$(dirname "$0")/.."
 
 APP="build/thumbs-out.app"
 
-swift build -c release
-BIN_DIR="$(swift build -c release --show-bin-path)"
+# Universal binary: Apple Silicon plus Intel (macOS 26 Tahoe is the last release for Intel Macs).
+ARCHS=(--arch arm64 --arch x86_64)
+swift build -c release "${ARCHS[@]}"
+BIN_DIR="$(swift build -c release "${ARCHS[@]}" --show-bin-path)"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"

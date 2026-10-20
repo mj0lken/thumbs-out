@@ -13,6 +13,7 @@ final class AwakeController {
     private(set) var lidDecision: LidClosedDecision = .allowLidSleep(.turnedOff)
     private(set) var installations: [AgentInstallation] = []
     private(set) var runningAgents: Set<Agent> = []
+    private(set) var watchedAgents: Set<Agent> = []
     private(set) var stats = StatsStore.load()
 
     let lid = LidSleepController()
@@ -28,6 +29,7 @@ final class AwakeController {
     @ObservationIgnored private var isRunning = false
     @ObservationIgnored private var lastScan: Date?
     @ObservationIgnored private var lastStatsSave: Date?
+    @ObservationIgnored private var lastCPUSample: CPUSample?
 
     private static let settingsDebounce: Duration = .milliseconds(400)
     /// Installed apps rarely change; rescanning once a minute is plenty.
@@ -37,6 +39,7 @@ final class AwakeController {
 
     init() {
         AppSettings.registerDefaults()
+        watchedAgents = AppSettings.load().watchedAgents
     }
 
     func start() {
@@ -155,6 +158,7 @@ final class AwakeController {
         let generation = refreshGeneration
         let settings = AppSettings.load()
         lastSettings = settings
+        watchedAgents = settings.watchedAgents
 
         let shouldDetect = settings.isAutoEnabled && !settings.watchedAgents.isEmpty
         let detector = ActivityDetector(ignoredProcessNames: settings.ignoredProcessNames)
@@ -162,12 +166,23 @@ final class AwakeController {
         if lastScan.map({ Date().timeIntervalSince($0) > Self.rescanInterval }) ?? true {
             await rescanAgents()
         }
-        let (detected, running, power) = await Task.detached(priority: .utility) {
+        let previousSample = lastCPUSample
+        let (detected, running, power, sample) = await Task.detached(priority: .utility) {
             let snapshot = ProcessLister.snapshot()
-            let commands = shouldDetect ? detector.activeCommands(in: snapshot, watching: agents) : []
-            return (commands, ActivityDetector.runningAgents(in: snapshot), SystemPowerReader.read())
+            let uptime = ProcessInfo.processInfo.systemUptime
+            let commands = shouldDetect
+                ? detector.activeCommands(in: snapshot, watching: agents)
+                    + RuntimeActivityDetector().busyRuntimes(
+                        in: snapshot, uptime: uptime, previous: previousSample, watching: agents
+                    )
+                : []
+            return (
+                commands, ActivityDetector.runningAgents(in: snapshot), SystemPowerReader.read(),
+                RuntimeActivityDetector.sample(snapshot, uptime: uptime)
+            )
         }.value
         guard isRunning, generation == refreshGeneration else { return }
+        lastCPUSample = sample
         commands = detected
         runningAgents = running
         self.power = power
@@ -214,6 +229,7 @@ final class AwakeController {
             keepsAwake: decision.keepsAwake,
             isEnabled: settings.isLidClosedModeEnabled,
             isSetUp: lid.isSetUp,
+            hasLid: power.hasLid,
             power: power.power,
             minimumBatteryPercent: settings.minimumBatteryPercent
         )
@@ -247,6 +263,12 @@ final class AwakeController {
         }
         stats = sample
         decision = .agentsActive([.claudeCode, .antigravity])
+    }
+
+    /// Snapshot variant: a desktop Mac (mini, Studio, iMac) with no lid and no battery.
+    func simulateDesktopMac() {
+        power.hasLid = false
+        power.power = PowerStatus(isOnBattery: false, batteryPercent: nil)
     }
     #endif
 }

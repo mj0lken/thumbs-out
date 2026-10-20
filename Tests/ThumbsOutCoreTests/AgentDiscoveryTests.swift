@@ -45,6 +45,18 @@ struct AgentDiscoveryTests {
         #expect(found.first?.path == "/Users/me/.local/bin/claude")
     }
 
+    @Test("ignores updater staging copies, the Trash and translocated apps", arguments: [
+        ("/Applications/Warp.app", true),
+        ("/Users/me/Downloads/Cursor.app", true),
+        ("/Users/me/Library/Application Support/dev.warp.Warp-Stable/autoupdate/x/Warp(v1).app", false),
+        ("/Library/Caches/com.example/Claude.app", false),
+        ("/Users/me/.Trash/ChatGPT.app", false),
+        ("/private/var/folders/ab/T/AppTranslocation/123/d/Cursor.app", false),
+    ])
+    func userFacingApps(path: String, expected: Bool) {
+        #expect(AgentDiscovery.isUserFacingApp(path: path) == expected)
+    }
+
     @Test("every agent has bundle identifiers to look up apps installed elsewhere")
     func bundleIdentifiers() {
         #expect(Agent.claudeCode.bundleIdentifiers.contains("com.anthropic.claudefordesktop"))

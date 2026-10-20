@@ -1,11 +1,26 @@
 import ThumbsOutCore
 import Darwin
+import Foundation
 
 /// Reads the process table through libproc and sysctl. Arguments are only read for the current
 /// user's processes; others (e.g. a `sudo` child of an agent's shell) are still listed so the
 /// tree stays complete.
 enum ProcessLister {
     private static let zombieStatus: UInt32 = 5 // SZOMB in <sys/proc.h>
+
+    /// Converts `proc_taskinfo` CPU times, which are Mach ticks (not nanoseconds on Apple Silicon).
+    private static let timebase: (numer: UInt32, denom: UInt32) = {
+        var info = mach_timebase_info_data_t()
+        mach_timebase_info(&info)
+        return MachTime.cpuTimebase(reportedNumer: info.numer, reportedDenom: info.denom, isTranslated: isTranslated)
+    }()
+
+    /// True when this (Intel) build runs under Rosetta on Apple Silicon.
+    private static let isTranslated: Bool = {
+        var value: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        return sysctlbyname("sysctl.proc_translated", &value, &size, nil, 0) == 0 && value == 1
+    }()
 
     private static let pathBufferSize = 4 * Int(MAXPATHLEN) // PROC_PIDPATHINFO_MAXSIZE
 
@@ -28,7 +43,8 @@ enum ProcessLister {
                 pid: pid,
                 ppid: Int32(info.pbi_ppid),
                 path: isOwn ? executablePath(pid) : "",
-                arguments: isOwn ? arguments(pid, buffer: &argumentBuffer) : []
+                arguments: isOwn ? arguments(pid, buffer: &argumentBuffer) : [],
+                cpuTime: isOwn ? cpuTime(pid) : nil
             )
         }
     }
@@ -49,6 +65,15 @@ enum ProcessLister {
         let expected = Int32(MemoryLayout<proc_bsdinfo>.size)
         let size = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, expected)
         return size == expected ? info : nil
+    }
+
+    private static func cpuTime(_ pid: pid_t) -> TimeInterval? {
+        var info = proc_taskinfo()
+        let expected = Int32(MemoryLayout<proc_taskinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, expected) == expected else { return nil }
+        return MachTime.seconds(
+            ticks: info.pti_total_user + info.pti_total_system, numer: timebase.numer, denom: timebase.denom
+        )
     }
 
     static func executablePath(_ pid: pid_t) -> String {

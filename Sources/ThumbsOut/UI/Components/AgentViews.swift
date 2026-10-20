@@ -88,9 +88,9 @@ enum AgentStatusText {
         }
     }
 
-    static func badge(for status: AgentStatus) -> String {
+    static func badge(for status: AgentStatus, agent: Agent) -> String {
         switch status {
-        case .working: "Working"
+        case .working: agent.category == .modelRuntime ? "Generating" : "Working"
         case .running: "Running"
         case .installed: "Installed"
         case .notFound: "Not found"
@@ -109,7 +109,7 @@ struct AgentCoverageRow: View {
         self.agent = agent
         self.status = status
         self.installations = installations
-        _isWatched = AppStorage(wrappedValue: true, SettingsKey.watch(agent))
+        _isWatched = AppStorage(wrappedValue: agent.isWatchedByDefault, SettingsKey.watch(agent))
     }
 
     var body: some View {
@@ -118,7 +118,7 @@ struct AgentCoverageRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(agent.displayName).font(.tileTitle)
-                    Text(AgentStatusText.badge(for: status))
+                    Text(AgentStatusText.badge(for: status, agent: agent))
                         .font(.system(size: 10, weight: .semibold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -142,8 +142,31 @@ struct AgentCoverageRow: View {
 
     private var coverageText: String {
         if installations.isEmpty {
-            return status.isFound ? "Running now" : "Not found. It'll be covered automatically once installed."
+            return status.isFound ? "Running now" : "Not found on this Mac"
         }
         return installations.map(\.name).joined(separator: " · ")
+    }
+}
+
+/// Catalog groupings shared by Settings and onboarding.
+@MainActor
+enum AgentCatalog {
+    static func found(in category: Agent.Category, controller: AwakeController) -> [Agent] {
+        Agent.allCases.filter { $0.category == category && controller.status(for: $0).isFound }
+    }
+
+    static func notFound(controller: AwakeController) -> [Agent] {
+        Agent.allCases.filter { !controller.status(for: $0).isFound }
+    }
+
+    static func footer(for category: Agent.Category) -> String {
+        switch category {
+        case .agent:
+            "Watched by default. Switch one off to stop it from keeping your Mac awake. In agent IDEs like Cursor and Antigravity, commands you type in their terminal count too."
+        case .editor:
+            "Off by default: every command in these counts, including the ones you type yourself."
+        case .modelRuntime:
+            "Off by default. Local models don't run commands, so these count as busy while generating (using CPU)."
+        }
     }
 }

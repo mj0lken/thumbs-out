@@ -11,7 +11,7 @@ enum SettingsKey {
     static let isLidClosedModeEnabled = "isLidClosedModeEnabled"
     static let minimumBatteryPercent = "minimumBatteryPercent"
 
-    static func watch(_ agent: Agent) -> String { "watch.\(agent.rawValue)" }
+    static func watch(_ agent: Agent) -> String { "watch.\(agent.id)" }
 }
 
 /// A snapshot of the user's settings, read once per detection tick.
@@ -24,7 +24,7 @@ struct AppSettings: Equatable {
     var keepDisplayAwake = false
     var gracePeriodMinutes = 5
     var pollIntervalSeconds = 5
-    var watchedAgents = Set(Agent.allCases)
+    var watchedAgents = Set(Agent.allCases.filter(\.isWatchedByDefault))
     var ignoredProcessNames = ActivityDetector.defaultIgnoredProcessNames
     /// Off by default: it needs a one-time admin setup and keeps a closed Mac running.
     var isLidClosedModeEnabled = false
@@ -47,7 +47,7 @@ struct AppSettings: Equatable {
             SettingsKey.minimumBatteryPercent: defaults.minimumBatteryPercent,
         ]
         for agent in Agent.allCases {
-            values[SettingsKey.watch(agent)] = true
+            values[SettingsKey.watch(agent)] = agent.isWatchedByDefault
         }
         store.register(defaults: values)
     }

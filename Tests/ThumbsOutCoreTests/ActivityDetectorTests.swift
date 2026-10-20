@@ -187,4 +187,84 @@ struct ActivityDetectorTests {
         ]
         #expect(ActivityDetector.runningAgents(in: snapshot) == [.claudeCode, .antigravity])
     }
+
+    @Test("commands are credited to the innermost agent only")
+    func innermostAgentWins() {
+        let snapshot = [
+            Fixtures.launchd,
+            Fixtures.process(40, parent: 1, "/Applications/Visual Studio Code.app/Contents/MacOS/Electron"),
+            Fixtures.process(41, parent: 40, "/Users/me/.vscode/extensions/anthropic.claude-code/resources/claude"),
+            Fixtures.process(42, parent: 41, "/bin/zsh", "-c", "make"),
+        ]
+        let commands = detector.activeCommands(in: snapshot, watching: [.vscode, .claudeCode])
+        #expect(commands.map(\.agent) == [.claudeCode])
+    }
+
+    @Test("an idle agent session in a watched editor's terminal is not a running command")
+    func idleAgentInTerminal() {
+        let snapshot = [
+            Fixtures.launchd,
+            Fixtures.process(30, parent: 1, Fixtures.antigravityPath),
+            Fixtures.process(32, parent: 30, "/bin/zsh", "-l"),
+            Fixtures.process(33, parent: 32, Fixtures.claudeCLIPath),
+        ]
+        #expect(detector.activeCommands(in: snapshot, watching: everyAgent).isEmpty)
+    }
+
+    @Test("local model runtimes are never treated as running shell commands")
+    func runtimesSkipped() {
+        let snapshot = [
+            Fixtures.launchd,
+            Fixtures.process(50, parent: 1, "/Applications/Ollama.app/Contents/Resources/ollama", "serve"),
+            Fixtures.process(51, parent: 50, "/bin/sh", "-c", "helper"),
+        ]
+        #expect(detector.activeCommands(in: snapshot, watching: everyAgent).isEmpty)
+    }
+
+    @Test("an agent's own CLI inside its IDE's terminal is walked, so its commands count")
+    func sameAgentCLIInsideIDE() {
+        let snapshot = [
+            Fixtures.launchd,
+            Fixtures.process(60, parent: 1, "/Applications/Cursor.app/Contents/MacOS/Cursor"),
+            Fixtures.process(61, parent: 60, "/bin/zsh", "-i"),
+            Fixtures.process(62, parent: 61, "/Users/me/.local/share/cursor-agent/versions/1/node", "/Users/me/.local/share/cursor-agent/versions/1/index.js"),
+            Fixtures.process(63, parent: 62, "/bin/zsh", "-c", "npm test"),
+        ]
+        let commands = detector.activeCommands(in: snapshot, watching: everyAgent)
+        #expect(commands == [DetectedCommand(agent: .cursor, pid: 63, summary: "npm test")])
+    }
+
+    @Test("an idle agent CLI inside its own IDE's terminal is not a command")
+    func idleSameAgentCLIInsideIDE() {
+        let snapshot = [
+            Fixtures.launchd,
+            Fixtures.process(60, parent: 1, "/Applications/Cursor.app/Contents/MacOS/Cursor"),
+            Fixtures.process(61, parent: 60, "/bin/zsh", "-i"),
+            Fixtures.process(62, parent: 61, "/Users/me/.local/bin/cursor-agent"),
+        ]
+        #expect(detector.activeCommands(in: snapshot, watching: everyAgent).isEmpty)
+    }
+
+    @Test("a command that merely mentions another agent's package still counts")
+    func commandMentioningAnotherAgent() {
+        let snapshot = [
+            Fixtures.launchd,
+            Fixtures.process(10, parent: 1, Fixtures.claudeCLIPath),
+            Fixtures.process(11, parent: 10, "/bin/zsh", "-c", "source s.sh && eval 'npm i -g @openai/codex' < /dev/null"),
+        ]
+        let commands = detector.activeCommands(in: snapshot, watching: everyAgent)
+        #expect(commands.map(\.agent) == [.claudeCode])
+        #expect(ActivityDetector.runningAgents(in: snapshot) == [.claudeCode])
+    }
+
+    @Test("an unwatched agent's commands count for the watched editor around it")
+    func unwatchedInnerAgent() {
+        let snapshot = [
+            Fixtures.launchd,
+            Fixtures.process(40, parent: 1, "/Applications/Visual Studio Code.app/Contents/MacOS/Electron"),
+            Fixtures.process(41, parent: 40, "/Users/me/.vscode/extensions/anthropic.claude-code/resources/claude"),
+            Fixtures.process(42, parent: 41, "/bin/zsh", "-c", "make"),
+        ]
+        #expect(detector.activeCommands(in: snapshot, watching: [.vscode]).map(\.agent) == [.vscode])
+    }
 }

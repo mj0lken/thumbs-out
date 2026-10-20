@@ -25,6 +25,7 @@ enum StatusPresentation {
         switch decision {
         case .allowLidSleep(.lowBattery(let percent)): "Paused: battery at \(percent)%"
         case .allowLidSleep(.setupRequired): "Needs your admin password once"
+        case .allowLidSleep(.noLid): "This Mac has no lid"
         default: nil
         }
     }

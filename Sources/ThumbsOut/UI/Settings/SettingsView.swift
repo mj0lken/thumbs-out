@@ -18,9 +18,12 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            agentsSection
+            agentSections
             keepAwakeSection
-            LidClosedSection(controller: controller)
+            // Also shown without a lid if setup exists, so it can always be removed.
+            if controller.power.hasLid || controller.lid.isSetUp {
+                LidClosedSection(controller: controller)
+            }
             StatsSection(controller: controller)
             detectionSection
             GeneralSection(showWelcome: showWelcome)
@@ -30,18 +33,50 @@ struct SettingsView: View {
         .frame(minWidth: 480, idealWidth: 520, minHeight: 520, idealHeight: 720)
     }
 
-    private var agentsSection: some View {
-        Section {
-            ForEach(Agent.allCases) { agent in
-                AgentCoverageRow(
-                    agent: agent,
-                    status: controller.status(for: agent),
-                    installations: controller.installations(for: agent)
-                )
+    /// One section per category with what was found, then everything not installed, collapsed.
+    @ViewBuilder
+    private var agentSections: some View {
+        ForEach(Agent.Category.allCases, id: \.self) { category in
+            let found = AgentCatalog.found(in: category, controller: controller)
+            if category == .agent || !found.isEmpty {
+                Section {
+                    if found.isEmpty {
+                        Text("No agents found yet.").foregroundStyle(.secondary)
+                    }
+                    ForEach(found) { agent in
+                        AgentCoverageRow(
+                            agent: agent,
+                            status: controller.status(for: agent),
+                            installations: controller.installations(for: agent)
+                        )
+                    }
+                } header: {
+                    categoryHeader(category)
+                } footer: {
+                    Text(AgentCatalog.footer(for: category)).foregroundStyle(.secondary)
+                }
             }
-        } header: {
+        }
+        let missing = AgentCatalog.notFound(controller: controller)
+        if !missing.isEmpty {
+            Section {
+                DisclosureGroup("Not installed (\(missing.count))") {
+                    Text(missing.map(\.displayName).joined(separator: ", "))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Text("Agents are covered automatically once installed. Editors and local models can be switched on when they show up above.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func categoryHeader(_ category: Agent.Category) -> some View {
+        if category == .agent {
             HStack {
-                Text("Agents")
+                Text(category.title)
                 Spacer()
                 Button(isScanning ? "Scanning…" : "Scan Again") {
                     Task {
@@ -53,9 +88,8 @@ struct SettingsView: View {
                 .controlSize(.small)
                 .disabled(isScanning)
             }
-        } footer: {
-            Text("Switch an agent off to stop it from keeping your Mac awake.")
-                .foregroundStyle(.secondary)
+        } else {
+            Text(category.title)
         }
     }
 

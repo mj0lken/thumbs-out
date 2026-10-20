@@ -20,35 +20,14 @@ public struct AgentInstallation: Sendable, Equatable, Identifiable {
     }
 }
 
-extension Agent {
-    /// App bundles, so the app layer can also ask Launch Services for apps installed elsewhere.
-    public var bundleIdentifiers: [String] {
-        switch self {
-        case .claudeCode: ["com.anthropic.claudefordesktop"]
-        case .chatGPT: ["com.openai.chat", "com.openai.codex"]
-        case .antigravity: ["com.google.antigravity", "com.google.antigravity-ide"]
-        }
-    }
-
-    var appBundleNames: [(bundle: String, name: String)] {
-        switch self {
-        case .claudeCode: [("Claude.app", "Claude app")]
-        case .chatGPT: [("ChatGPT.app", "ChatGPT app"), ("Codex.app", "Codex app")]
-        case .antigravity: [("Antigravity.app", "Antigravity"), ("Antigravity IDE.app", "Antigravity IDE")]
-        }
-    }
-
-    var commandLineTools: [String] {
-        switch self {
-        case .claudeCode: ["claude"]
-        case .chatGPT: ["codex"]
-        case .antigravity: ["agy", "antigravity"]
-        }
-    }
-}
-
 /// Looks for installed agents in the usual places. File access is injected for testing.
 public enum AgentDiscovery {
+    /// Launch Services also knows about copies users never see: auto-updater staging folders,
+    /// caches, the Trash and translocated quarantine copies.
+    public static func isUserFacingApp(path: String) -> Bool {
+        !["/Library/", "/.Trash/", "/AppTranslocation/"].contains(where: path.contains)
+    }
+
     public static func installations(
         home: String,
         nodeVersions: [String],
@@ -57,13 +36,14 @@ public enum AgentDiscovery {
         let appDirectories = ["/Applications", "\(home)/Applications"]
         let binDirectories = [
             "\(home)/.local/bin", "\(home)/.claude/local", "/opt/homebrew/bin", "/usr/local/bin",
-            "\(home)/.npm-global/bin", "\(home)/.bun/bin",
+            "\(home)/.npm-global/bin", "\(home)/.bun/bin", "\(home)/.opencode/bin", "\(home)/.lmstudio/bin",
+            "\(home)/.cargo/bin", "\(home)/go/bin",
         ] + nodeVersions.map { "\(home)/.nvm/versions/node/\($0)/bin" }
 
         return Agent.allCases.flatMap { agent in
-            let apps = agent.appBundleNames.compactMap { bundle, name in
-                appDirectories.lazy.map { "\($0)/\(bundle)" }.first(where: fileExists).map {
-                    AgentInstallation(agent: agent, kind: .app, name: name, path: $0)
+            let apps = agent.apps.compactMap { app in
+                appDirectories.lazy.map { "\($0)/\(app.bundle)" }.first(where: fileExists).map {
+                    AgentInstallation(agent: agent, kind: .app, name: app.name, path: $0)
                 }
             }
             let tools = agent.commandLineTools.compactMap { tool in

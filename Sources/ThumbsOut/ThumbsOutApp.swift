@@ -30,6 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { await SnapshotRenderer.runIfRequested(controller: controller) }
             return
         }
+        if CommandLine.arguments.contains("--render-demo") {
+            Task { await DemoRenderer.runIfRequested(controller: controller) }
+            return
+        }
         #endif
         controller.start()
         if !windows.hasCompletedOnboarding {

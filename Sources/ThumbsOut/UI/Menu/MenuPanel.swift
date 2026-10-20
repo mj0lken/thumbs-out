@@ -73,9 +73,7 @@ private struct StatusHeader: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 4)
-            Toggle("Watch agents", isOn: $isAutoEnabled)
-                .toggleStyle(.switch)
-                .labelsHidden()
+            AppSwitch(title: "Watch agents", isOn: $isAutoEnabled)
                 .help("Keep the Mac awake while agents run commands")
         }
     }

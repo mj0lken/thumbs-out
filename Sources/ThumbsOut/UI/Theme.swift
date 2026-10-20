@@ -114,11 +114,64 @@ struct SwitchRow: View {
                 }
             }
             Spacer(minLength: 8)
+            AppSwitch(title: title, isOn: $isOn, tint: tint)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+extension EnvironmentValues {
+    /// Set by the debug snapshot renderer: native switches only show their colour while the app is
+    /// frontmost, so offscreen captures draw a replica instead.
+    @Entry var rendersStaticControls = false
+}
+
+/// A switch that's native in the app and drawn by hand in offscreen captures.
+struct AppSwitch: View {
+    let title: String
+    @Binding var isOn: Bool
+    var tint: Color = Theme.working
+    var isSmall = false
+
+    @Environment(\.rendersStaticControls) private var rendersStatic
+
+    var body: some View {
+        if rendersStatic {
+            let width: CGFloat = isSmall ? 32 : 38
+            let height: CGFloat = isSmall ? 18 : 22
+            Capsule()
+                .fill(isOn ? AnyShapeStyle(tint) : AnyShapeStyle(Color.primary.opacity(0.14)))
+                .frame(width: width, height: height)
+                .overlay(alignment: isOn ? .trailing : .leading) {
+                    Circle()
+                        .fill(.white)
+                        .shadow(color: .black.opacity(0.22), radius: 1, y: 0.5)
+                        .padding(2)
+                }
+                .accessibilityLabel(title)
+        } else {
             Toggle(title, isOn: $isOn)
                 .toggleStyle(.switch)
                 .labelsHidden()
+                .controlSize(isSmall ? .small : .regular)
                 .tint(tint)
         }
-        .accessibilityElement(children: .combine)
+    }
+}
+
+/// A labelled switch row for grouped forms, using `AppSwitch` so captures look right too.
+struct FormSwitch: View {
+    let title: String
+    @Binding var isOn: Bool
+    var tint: Color = Theme.working
+
+    @Environment(\.rendersStaticControls) private var rendersStatic
+
+    var body: some View {
+        if rendersStatic {
+            LabeledContent(title) { AppSwitch(title: title, isOn: $isOn, tint: tint) }
+        } else {
+            Toggle(title, isOn: $isOn).tint(tint)
+        }
     }
 }

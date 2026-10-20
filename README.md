@@ -8,20 +8,27 @@ keeps the Mac awake until they're done. Think Amphetamine, but automatic. It can
 with the lid closed.
 
 <p align="center">
-  <img src="docs/images/menu-light.png" width="300" alt="thumbs-out menu bar panel in light mode">
-  &nbsp;&nbsp;
-  <img src="docs/images/menu-dark.png" width="300" alt="thumbs-out menu bar panel in dark mode">
+  <img src="docs/images/demo.gif" width="720" alt="Demo: thumbs-out keeps the Mac awake while Claude Code and Cursor run commands, through closing the lid and a grace period, then lets it sleep">
 </p>
 
+**[Website](https://mj0lken.github.io/thumbs-out/)** ·
 **[Download for Apple Silicon](https://github.com/mj0lken/thumbs-out/releases/latest)** · macOS 15
 or later · free and open source (MIT)
 
 ## Install
 
+**Homebrew:**
+
+```bash
+brew install --cask mj0lken/tap/thumbs-out
+```
+
+**Or download it:**
+
 1. Download `thumbs-out-…-arm64.zip` from the
    [latest release](https://github.com/mj0lken/thumbs-out/releases/latest), unzip it, and drag
    **thumbs-out.app** to **Applications**.
-2. Open it. The app isn't signed with a paid Apple Developer ID yet, so macOS stops it the first
+2. Open it (also after a Homebrew install). The app isn't signed with a paid Apple Developer ID yet, so macOS stops it the first
    time: click **Done**, open **System Settings › Privacy & Security**, scroll down and click
    **Open Anyway** next to thumbs-out. You only do this once.
 3. The welcome window walks you through which agents were found, the grace period, lid-closed mode
@@ -30,6 +37,8 @@ or later · free and open source (MIT)
 Prefer to build it yourself? See [Build and run](#build-and-run).
 
 <p align="center">
+  <img src="docs/images/menu.png" width="300" alt="thumbs-out menu bar panel: agents working, one open but idle, grace period meter and lid-closed mode">
+  &nbsp;
   <img src="docs/images/onboarding-agents.png" width="420" alt="Onboarding: agents found on this Mac">
   &nbsp;
   <img src="docs/images/onboarding-lid.png" width="420" alt="Onboarding: close the lid, keep working">
@@ -131,6 +140,7 @@ Requires an Apple Silicon Mac with macOS 15+, and Xcode (Swift 6) to build.
 ./scripts/build-app.sh --install  # also copies it to /Applications and launches it
 swift test                        # runs the core tests
 swift build && .build/debug/ThumbsOut --render-snapshots /tmp/snaps   # PNGs of every screen (debug only)
+.build/debug/ThumbsOut --render-demo docs/images   # demo.mp4/.gif, poster and social preview (debug only)
 ```
 
 For **Launch at login** to work reliably, install the app to `/Applications` first. macOS may ask

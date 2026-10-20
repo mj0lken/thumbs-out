@@ -24,14 +24,30 @@ enum SnapshotRenderer {
         controller.simulateDesktopMac()
         render(MenuPanel(controller: controller) {}.background(.regularMaterial), .light, directory, "menu-desktop")
         render(SettingsView(controller: controller) {}.frame(width: 520, height: 1500), .light, directory, "settings-desktop")
-        exit(0)
+        finish(status: 0)
+    }
+
+    /// Clears the staged settings (`exit` skips `defer`), then exits.
+    static func finish(status: Int32) -> Never {
+        for key in [SettingsKey.isLidClosedModeEnabled, "lidSleepDisabledByThumbsOut"] {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        exit(status)
     }
 
     private static func render(_ view: some View, _ scheme: ColorScheme, _ directory: URL, _ name: String) {
-        let hosting = NSHostingView(rootView: view.environment(\.colorScheme, scheme))
+        guard let bitmap = bitmap(of: view, scheme: scheme) else { return }
+        try? bitmap.representation(using: .png, properties: [:])?.write(to: directory.appendingPathComponent("\(name).png"))
+    }
+
+    /// Lays a view out in an offscreen window and captures it at the display's backing scale.
+    static func bitmap(of view: some View, scheme: ColorScheme = .light, settle: TimeInterval = 0.3) -> NSBitmapImageRep? {
+        let hosting = NSHostingView(
+            rootView: view.environment(\.colorScheme, scheme).environment(\.rendersStaticControls, true)
+        )
         hosting.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
         let size = hosting.fittingSize
-        let window = NSWindow(
+        let window = ActiveLookingWindow(
             contentRect: NSRect(origin: NSPoint(x: -20_000, y: -20_000), size: size),
             styleMask: [.borderless], backing: .buffered, defer: false
         )
@@ -40,11 +56,18 @@ enum SnapshotRenderer {
         window.contentView = hosting
         window.orderFrontRegardless()
         hosting.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
-        guard let bitmap = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return }
+        RunLoop.main.run(until: Date().addingTimeInterval(settle))
+        defer { window.orderOut(nil) }
+        guard let bitmap = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return nil }
         hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
-        try? bitmap.representation(using: .png, properties: [:])?.write(to: directory.appendingPathComponent("\(name).png"))
-        window.orderOut(nil)
+        return bitmap
     }
+}
+
+/// Reports itself as key so controls render in their active, tinted state, without actually
+/// taking focus from whatever the user is doing.
+private final class ActiveLookingWindow: NSWindow {
+    override var isKeyWindow: Bool { true }
+    override var isMainWindow: Bool { true }
 }
 #endif

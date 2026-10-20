@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>thumbs-out: keep your Mac awake while AI agents work</title>
+  <meta name="description" content="A free macOS menu bar app that keeps your Mac awake while Claude Code, Codex, Cursor and Antigravity run commands, even with the lid closed.">
+  <meta name="theme-color" content="#F6F3EC">
+  <meta name="color-scheme" content="light">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="canonical" href="https://mj0lken.github.io/thumbs-out/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="thumbs-out: close the lid, your agents keep going">
+  <meta property="og:description" content="Keeps your Mac awake while Claude Code, Codex, Cursor and Antigravity run commands. Free and open source.">
+  <meta property="og:url" content="https://mj0lken.github.io/thumbs-out/">
+  <meta property="og:image" content="https://mj0lken.github.io/thumbs-out/images/social-preview.png">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Only downloaded where SF Pro Rounded (ui-rounded) isn't available. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap">
+  <link rel="stylesheet" href="site.css">
+  <script src="site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <nav class="nav" aria-label="Main navigation">
+      <a class="brand" href="#top" aria-label="thumbs-out home">
+        <svg class="badge" viewBox="0 0 24 24" aria-hidden="true"><use href="#thumb"/></svg>
+        <span>thumbs-out</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#agents">Agents</a></li>
+        <li><a href="#lid">Lid closed</a></li>
+        <li><a href="#install">Install</a></li>
+      </ul>
+      <a class="nav-github" href="https://github.com/mj0lken/thumbs-out">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Free · open source · macOS menu bar app</p>
+        <h1 id="hero-title">Close the lid.<br><span class="accent">Your agents keep going.</span></h1>
+        <p class="lede">thumbs-out notices when Claude Code, Codex, Cursor or Antigravity run commands and keeps
+          your Mac awake until they're done. Like Amphetamine, but automatic.</p>
+        <div class="cta-row">
+          <a class="button button-primary" href="https://github.com/mj0lken/thumbs-out/releases/latest">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 21h14"/></svg>
+            Download for Apple Silicon
+          </a>
+          <div class="brew" role="group" aria-label="Install with Homebrew">
+            <code>brew install --cask mj0lken/tap/thumbs-out</code>
+            <button class="copy" type="button" data-copy="brew install --cask mj0lken/tap/thumbs-out">Copy</button>
+          </div>
+        </div>
+        <p class="meta">macOS 15 or later · Apple Silicon · v1.0.0 · MIT</p>
+      </div>
+
+      <figure class="hero-demo">
+        <div class="demo-frame">
+          <video src="images/demo.mp4" poster="images/demo-poster.jpg" width="1650" height="1140"
+                 autoplay muted loop playsinline preload="metadata"
+                 aria-label="Demo: the thumbs-out menu bar panel keeps the Mac awake while Claude Code and Cursor run commands, through closing the lid and a grace period, then lets it sleep."></video>
+        </div>
+        <figcaption class="legend" aria-label="Status dots">
+          <span><i class="dot dot-working"></i>Working: running a command</span>
+          <span><i class="dot dot-running"></i>Open, idle</span>
+          <span><i class="dot dot-installed"></i>Installed</span>
+        </figcaption>
+      </figure>
+    </section>
+
+    <section class="trend" aria-labelledby="trend-title">
+      <div class="trend-art" aria-hidden="true">
+        <svg viewBox="0 0 360 330" class="laptop">
+          <defs>
+            <radialGradient id="glow"><stop offset="0" stop-color="#31C766" stop-opacity=".55"/><stop offset="1" stop-color="#31C766" stop-opacity="0"/></radialGradient>
+          </defs>
+          <circle cx="300" cy="44" r="40" fill="url(#glow)" class="glow"/>
+          <g class="pill">
+            <rect x="262" y="28" width="80" height="32" rx="16" fill="#16130F"/>
+            <svg x="272" y="34" width="20" height="20" viewBox="0 0 24 24"><use href="#thumb-glyph" fill="#31C766"/></svg>
+            <text x="298" y="49" fill="#F6F3EC" font-size="13" font-weight="700" font-family="ui-rounded, Nunito, system-ui">awake</text>
+          </g>
+          <rect x="100" y="292" width="230" height="12" rx="6" fill="#16130F"/>
+          <rect x="100" y="304" width="230" height="4" rx="2" fill="#16130F" opacity=".25"/>
+          <g class="lid">
+            <rect x="104" y="285" width="200" height="7" rx="3.5" fill="#16130F"/>
+            <rect x="118" y="281" width="172" height="3" rx="1.5" fill="#31C766" opacity=".55"/>
+          </g>
+        </svg>
+      </div>
+      <div class="trend-copy">
+        <p class="eyebrow">Spotted in every café and co-working space</p>
+        <h2 id="trend-title">The half-open MacBook, carried like a tray.</h2>
+        <p>Thumbs on the palm rest, lid at forty degrees, eyes on the progress bar. All because closing it
+          would put the Mac to sleep and kill the agent mid-task. thumbs-out ends the balancing act.</p>
+      </div>
+    </section>
+
+    <section class="how" id="how" aria-labelledby="how-title">
+      <h2 id="how-title" class="section-title">How it works</h2>
+      <ol class="steps">
+        <li class="step">
+          <span class="step-number">01</span>
+          <h3>It notices</h3>
+          <p>Every few seconds thumbs-out checks the processes under each agent. When one starts a shell
+            command, it knows work is happening. MCP servers and idle sessions don't count.</p>
+        </li>
+        <li class="step">
+          <span class="step-number">02</span>
+          <h3>It holds on</h3>
+          <p>It takes the same keep-awake lock as <code>caffeinate</code> and Amphetamine, and keeps it
+            through a grace period while the agent thinks between commands.</p>
+        </li>
+        <li class="step">
+          <span class="step-number">03</span>
+          <h3>It lets go</h3>
+          <p>When the agents are done and the grace period runs out, your Mac sleeps like it normally
+            would. No timers to remember.</p>
+        </li>
+      </ol>
+
+      <div class="meter-card">
+        <div class="meter-head">
+          <label for="grace" class="meter-label">Stay awake after the last command</label>
+          <output id="grace-value" for="grace" class="meter-value">5m</output>
+        </div>
+        <input id="grace" class="meter" type="range" min="0" max="10" step="1" value="3"
+               aria-valuetext="5 minutes">
+        <div class="meter-ticks" aria-hidden="true">
+          <span>0m</span><span>1</span><span>2</span><span>5</span><span>10</span><span>15</span><span>20</span><span>30</span><span>1h</span><span>2h</span><span>4h</span>
+        </div>
+        <p class="meter-note">Try it: the same snapping meter lives in the menu bar panel.</p>
+      </div>
+    </section>
+
+    <section class="agents" id="agents" aria-labelledby="agents-title">
+      <div class="agents-intro">
+        <h2 id="agents-title" class="section-title">Watches the agents you use</h2>
+        <p>It finds what's installed (apps and command-line tools) and shows each one's status. Agents
+          you install later are picked up automatically.</p>
+        <ul class="legend legend-list" aria-label="What the status dots mean">
+          <li><i class="dot dot-working"></i><strong>Working</strong> running a command, keeping the Mac awake</li>
+          <li><i class="dot dot-running"></i><strong>Open, idle</strong> running, but not doing anything right now</li>
+          <li><i class="dot dot-installed"></i><strong>Installed</strong> found on your Mac, not running</li>
+        </ul>
+      </div>
+      <div class="tiers">
+        <div class="tier tier-agents">
+          <h3>Agents <span class="tag tag-on">On by default</span></h3>
+          <ul class="chips">
+            <li>Claude Code</li><li>ChatGPT / Codex</li><li>Antigravity</li><li>Antigravity IDE</li><li>Gemini CLI</li>
+            <li>Cursor</li><li>Windsurf</li><li>Kiro</li><li>GitHub Copilot CLI</li><li>OpenCode</li><li>Aider</li>
+            <li>Goose</li><li>Amp</li><li>Factory Droid</li><li>Qwen Code</li><li>Crush</li>
+          </ul>
+        </div>
+        <div class="tier">
+          <h3>Editors &amp; terminals <span class="tag">Opt-in</span></h3>
+          <ul class="chips"><li>VS Code</li><li>Zed</li><li>Warp</li></ul>
+          <p>Every command typed in them counts, including your own.</p>
+        </div>
+        <div class="tier">
+          <h3>Local models <span class="tag">Opt-in</span></h3>
+          <ul class="chips"><li>Ollama</li><li>LM Studio</li></ul>
+          <p>Counted as busy while generating, by CPU use.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="lid" id="lid" aria-labelledby="lid-title">
+      <div class="lid-copy">
+        <p class="eyebrow">Optional</p>
+        <h2 id="lid-title">Lid closed. Still working.</h2>
+        <p>Normally a MacBook sleeps the moment you close it, no matter what's running. Turn on lid-closed
+          mode and thumbs-out keeps it awake while agents work, then lets it sleep again.</p>
+        <ul class="checks">
+          <li>One admin password, once. It allows a single command: <code>pmset disablesleep</code>.</li>
+          <li>Turns lid sleep back on when agents finish, the battery runs low, you quit, or it crashes.</li>
+          <li>Never touches a setting it didn't change, and removes itself in one click.</li>
+        </ul>
+      </div>
+      <img class="lid-shot" src="images/onboarding-lid.png" width="1200" height="1160" loading="lazy"
+           alt="Onboarding step: close the lid, keep working, with a switch for staying awake with the lid closed.">
+    </section>
+
+    <section class="glance" aria-labelledby="glance-title">
+      <h2 id="glance-title" class="section-title">Everything at a glance</h2>
+      <p class="section-lede">See what each agent is doing, tune the grace period, and find out how long
+        thumbs-out has kept your Mac going today and this week.</p>
+      <div class="collage">
+        <img class="shot shot-settings" src="images/settings.png" width="1040" height="1420" loading="lazy"
+             alt="Settings: agents found on this Mac, with switches to watch each one.">
+        <img class="shot shot-menu" src="images/menu.png" width="680" height="1276" loading="lazy"
+             alt="Menu bar panel: keeping your Mac awake, time kept awake, agents and their status.">
+        <img class="shot shot-agents" src="images/onboarding-agents.png" width="1200" height="1160" loading="lazy"
+             alt="Onboarding: found agents on this Mac.">
+      </div>
+    </section>
+
+    <section class="install" id="install" aria-labelledby="install-title">
+      <h2 id="install-title">Put your thumbs away.</h2>
+      <div class="install-grid">
+        <div class="install-option">
+          <h3>Homebrew</h3>
+          <div class="brew brew-large" role="group" aria-label="Install with Homebrew">
+            <code>brew install --cask mj0lken/tap/thumbs-out</code>
+            <button class="copy" type="button" data-copy="brew install --cask mj0lken/tap/thumbs-out">Copy</button>
+          </div>
+        </div>
+        <div class="install-option">
+          <h3>Download</h3>
+          <a class="button button-primary" href="https://github.com/mj0lken/thumbs-out/releases/latest">Download the latest release</a>
+        </div>
+      </div>
+      <ol class="first-launch">
+        <li>The app isn't notarized by Apple yet, so the first launch is blocked. Click <strong>Done</strong>.</li>
+        <li>Open <strong>System Settings › Privacy &amp; Security</strong> and click <strong>Open Anyway</strong>.</li>
+        <li>The welcome window shows the agents it found and walks you through the rest.</li>
+      </ol>
+      <p class="meta">Requires an Apple Silicon Mac with macOS 15 or later.
+        <a href="https://github.com/mj0lken/thumbs-out#build-and-run">Build from source</a></p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>
+      <svg class="badge badge-small" viewBox="0 0 24 24" aria-hidden="true"><use href="#thumb"/></svg>
+      thumbs-out by <a href="https://github.com/mj0lken">mj0lken</a> · <a href="https://github.com/mj0lken/thumbs-out/blob/main/LICENSE">MIT license</a> ·
+      <a href="https://github.com/mj0lken/thumbs-out">Source on GitHub</a>
+    </p>
+  </footer>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="thumb-glyph" viewBox="0 0 24 24">
+      <rect x="2" y="10" width="4" height="11" rx="1.2"/>
+      <path d="M8 10.5 12.4 3.7c.7-1.1 2.4-.6 2.4.7V9H20c1.2 0 2.1 1.1 1.9 2.3l-1.3 7.6c-.2 1.2-1.2 2.1-2.4 2.1H8z"/>
+    </symbol>
+    <symbol id="thumb" viewBox="0 0 24 24">
+      <rect width="24" height="24" rx="6.5" fill="#31C766"/>
+      <g transform="translate(4.6 4.4) scale(.62)" fill="#fff"><use href="#thumb-glyph"/></g>
+    </symbol>
+  </svg>
+</body>
+</html>

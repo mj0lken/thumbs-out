@@ -194,4 +194,12 @@ final class LidSleepController {
         if watchdog?.isRunning == true { watchdog?.terminate() }
         watchdog = nil
     }
+
+    #if DEBUG
+    /// Demo rendering: pretend the one-time setup is done and lid sleep is off.
+    func simulateLidMode(active: Bool) {
+        isSetUp = true
+        UserDefaults.standard.set(active, forKey: Self.ownershipKey)
+    }
+    #endif
 }

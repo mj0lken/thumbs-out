@@ -254,15 +254,34 @@ final class AwakeController {
             DetectedCommand(agent: .claudeCode, pid: 1, summary: "swift test --parallel"),
             DetectedCommand(agent: .antigravity, pid: 2, summary: "npm run dev"),
         ]
-        runningAgents = [.claudeCode, .antigravity]
+        runningAgents = [.claudeCode, .antigravity, .cursor] // Cursor open but idle: the blue dot
         power = SystemPowerReader.read()
-        var sample = AwakeStats()
-        let start = Date().addingTimeInterval(-47 * 60)
-        for minute in stride(from: 0.0, through: 47 * 60, by: 60) {
-            sample = sample.recording(keepsAwake: true, at: start.addingTimeInterval(minute), uptime: minute, maxCountedGap: 90)
-        }
-        stats = sample
+        stats = DemoRenderer.stats(todayMinutes: 134, weekMinutes: 580, currentMinutes: 47, now: Date())
+        lid.simulateLidMode(active: false)
+        UserDefaults.standard.set(true, forKey: SettingsKey.isLidClosedModeEnabled)
+        power.sleepDisabled = false
         decision = .agentsActive([.claudeCode, .antigravity])
+    }
+
+    /// One staged moment of the demo animation.
+    struct DemoState {
+        var decision: AwakeDecision
+        var commands: [DetectedCommand]
+        var running: Set<Agent>
+        var lidActive: Bool
+        var stats: AwakeStats
+    }
+
+    func applyDemo(_ state: DemoState) {
+        decision = state.decision
+        commands = state.commands
+        runningAgents = state.running
+        stats = state.stats
+        lid.simulateLidMode(active: state.lidActive)
+        UserDefaults.standard.set(true, forKey: SettingsKey.isLidClosedModeEnabled)
+        lidDecision = state.lidActive ? .disableLidSleep : .allowLidSleep(.notNeeded)
+        power.sleepDisabled = state.lidActive
+        power.hasLid = true
     }
 
     /// Snapshot variant: a desktop Mac (mini, Studio, iMac) with no lid and no battery.

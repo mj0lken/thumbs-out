@@ -22,11 +22,7 @@ struct LidTile: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 4)
-            Toggle("Stay awake with lid closed", isOn: binding)
-                .toggleStyle(.switch)
-                .labelsHidden()
-                .controlSize(.small)
-                .tint(Theme.lid)
+            AppSwitch(title: "Stay awake with lid closed", isOn: binding, tint: Theme.lid, isSmall: true)
                 .disabled(controller.lid.isBusy)
         }
         .tile()

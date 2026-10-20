@@ -95,7 +95,7 @@ struct SettingsView: View {
 
     private var keepAwakeSection: some View {
         Section("Keeping Awake") {
-            Toggle("Keep the Mac awake while agents run commands", isOn: $isAutoEnabled)
+            FormSwitch(title: "Keep the Mac awake while agents run commands", isOn: $isAutoEnabled)
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("Stay awake after the last command")
@@ -111,7 +111,7 @@ struct SettingsView: View {
             }
             .padding(.vertical, 4)
             .disabled(!isAutoEnabled)
-            Toggle("Keep the display on too", isOn: $keepDisplayAwake)
+            FormSwitch(title: "Keep the display on too", isOn: $keepDisplayAwake)
         }
     }
 
@@ -150,12 +150,11 @@ private struct LidClosedSection: View {
 
     var body: some View {
         Section {
-            Toggle("Stay awake with the lid closed", isOn: Binding(
+            FormSwitch(title: "Stay awake with the lid closed", isOn: Binding(
                 get: { lid.isBusy || (isEnabled && lid.isSetUp) },
                 set: { newValue in Task { await controller.setLidClosedMode(newValue) } }
-            ))
+            ), tint: Theme.lid)
             .disabled(lid.isBusy)
-            .tint(Theme.lid)
             Picker("Stop below battery level", selection: $minimumBatteryPercent) {
                 ForEach(AppSettings.minimumBatteryChoices, id: \.self) { Text("\($0)%").tag($0) }
             }
@@ -209,7 +208,7 @@ private struct GeneralSection: View {
 
     var body: some View {
         Section("General") {
-            Toggle("Launch at login", isOn: $launchAtLogin)
+            FormSwitch(title: "Launch at login", isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, enabled in update(enabled) }
             if let launchAtLoginError {
                 Text(launchAtLoginError).foregroundStyle(.red).font(.callout)

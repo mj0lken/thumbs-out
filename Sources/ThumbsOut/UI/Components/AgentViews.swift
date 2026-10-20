@@ -132,10 +132,7 @@ struct AgentCoverageRow: View {
                     .help(installations.map(\.path).joined(separator: "\n"))
             }
             Spacer(minLength: 8)
-            Toggle("Watch \(agent.displayName)", isOn: $isWatched)
-                .toggleStyle(.switch)
-                .labelsHidden()
-                .controlSize(.small)
+            AppSwitch(title: "Watch \(agent.displayName)", isOn: $isWatched, isSmall: true)
         }
         .accessibilityElement(children: .combine)
     }

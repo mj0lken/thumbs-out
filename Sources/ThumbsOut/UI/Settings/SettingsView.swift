@@ -1,0 +1,200 @@
+import SwiftUI
+import ThumbsOutCore
+
+/// All settings on one scrolling page, grouped into sections.
+struct SettingsView: View {
+    let controller: AwakeController
+    let showWelcome: () -> Void
+
+    @AppStorage(SettingsKey.isAutoEnabled) private var isAutoEnabled = AppSettings.defaults.isAutoEnabled
+    @AppStorage(SettingsKey.gracePeriodMinutes) private var gracePeriodMinutes = AppSettings.defaults.gracePeriodMinutes
+    @AppStorage(SettingsKey.keepDisplayAwake) private var keepDisplayAwake = AppSettings.defaults.keepDisplayAwake
+    @AppStorage(SettingsKey.pollIntervalSeconds)
+    private var pollIntervalSeconds = AppSettings.defaults.pollIntervalSeconds
+    @AppStorage(SettingsKey.ignoredProcessNames)
+    private var ignoredProcessNames = AppSettings.defaultIgnoredProcessNamesText
+
+    @State private var isScanning = false
+
+    var body: some View {
+        Form {
+            agentsSection
+            keepAwakeSection
+            LidClosedSection(controller: controller)
+            StatsSection(controller: controller)
+            detectionSection
+            GeneralSection(showWelcome: showWelcome)
+        }
+        .formStyle(.grouped)
+        .tint(Theme.working)
+        .frame(minWidth: 480, idealWidth: 520, minHeight: 520, idealHeight: 720)
+    }
+
+    private var agentsSection: some View {
+        Section {
+            ForEach(Agent.allCases) { agent in
+                AgentCoverageRow(
+                    agent: agent,
+                    status: controller.status(for: agent),
+                    installations: controller.installations(for: agent)
+                )
+            }
+        } header: {
+            HStack {
+                Text("Agents")
+                Spacer()
+                Button(isScanning ? "Scanning…" : "Scan Again") {
+                    Task {
+                        isScanning = true
+                        await controller.rescanAgents()
+                        isScanning = false
+                    }
+                }
+                .controlSize(.small)
+                .disabled(isScanning)
+            }
+        } footer: {
+            Text("Switch an agent off to stop it from keeping your Mac awake.")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var keepAwakeSection: some View {
+        Section("Keeping Awake") {
+            Toggle("Keep the Mac awake while agents run commands", isOn: $isAutoEnabled)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Stay awake after the last command")
+                    Spacer()
+                    Text(GracePeriodScale.label(for: gracePeriodMinutes))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                GraceMeter(minutes: $gracePeriodMinutes)
+                Text("Covers the time an agent spends thinking between commands.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+            .disabled(!isAutoEnabled)
+            Toggle("Keep the display on too", isOn: $keepDisplayAwake)
+        }
+    }
+
+    private var detectionSection: some View {
+        Section {
+            Stepper(value: $pollIntervalSeconds, in: AppSettings.pollIntervalRange) {
+                Text("Check every \(pollIntervalSeconds) seconds")
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Ignored background processes")
+                TextField("Ignored background processes", text: $ignoredProcessNames, axis: .vertical)
+                    .labelsHidden()
+                    .lineLimit(2...4)
+                    .textFieldStyle(.roundedBorder)
+            }
+            Button("Restore Default Ignored Processes") {
+                ignoredProcessNames = AppSettings.defaultIgnoredProcessNamesText
+            }
+        } header: {
+            Text("Detection")
+        } footer: {
+            Text("Comma-separated names of processes that shouldn't count as a running command, like prompt helpers your shell keeps alive.")
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct LidClosedSection: View {
+    let controller: AwakeController
+    @AppStorage(SettingsKey.isLidClosedModeEnabled)
+    private var isEnabled = AppSettings.defaults.isLidClosedModeEnabled
+    @AppStorage(SettingsKey.minimumBatteryPercent)
+    private var minimumBatteryPercent = AppSettings.defaults.minimumBatteryPercent
+
+    private var lid: LidSleepController { controller.lid }
+
+    var body: some View {
+        Section {
+            Toggle("Stay awake with the lid closed", isOn: Binding(
+                get: { lid.isBusy || (isEnabled && lid.isSetUp) },
+                set: { newValue in Task { await controller.setLidClosedMode(newValue) } }
+            ))
+            .disabled(lid.isBusy)
+            .tint(Theme.lid)
+            Picker("Stop below battery level", selection: $minimumBatteryPercent) {
+                ForEach(AppSettings.minimumBatteryChoices, id: \.self) { Text("\($0)%").tag($0) }
+            }
+            .disabled(!isEnabled || !lid.isSetUp)
+            LabeledContent("Right now", value: StatusPresentation.lidLine(for: controller.lidBehavior))
+            if lid.isSetUp {
+                Button("Remove Lid-Closed Setup…", role: .destructive) {
+                    Task { await controller.removeLidClosedSetup() }
+                }
+                .disabled(lid.isBusy)
+            }
+            if let error = lid.lastError {
+                Text(error).font(.callout).foregroundStyle(.red)
+            }
+        } header: {
+            Text("Lid Closed")
+        } footer: {
+            Text("Turns lid sleep off only while thumbs-out keeps your Mac awake. The first time, it asks for your admin password to allow just the pmset disablesleep command. A closed MacBook running agents gets warm, so keep it out of tight bags.")
+                .foregroundStyle(.secondary)
+        }
+        .task { await lid.refreshSetupStatus() }
+    }
+}
+
+private struct StatsSection: View {
+    let controller: AwakeController
+    @State private var isConfirmingReset = false
+
+    var body: some View {
+        let stats = controller.stats
+        let now = Date()
+        Section("Time Kept Awake") {
+            LabeledContent("Today", value: AwakeStats.format(stats.seconds(on: now)))
+            LabeledContent("Last 7 days", value: AwakeStats.format(stats.seconds(inLast: 7, endingOn: now)))
+            LabeledContent("Last 30 days", value: AwakeStats.format(stats.seconds(inLast: 30, endingOn: now)))
+            LabeledContent("All time", value: AwakeStats.format(stats.totalSeconds))
+            LabeledContent("Longest stretch", value: AwakeStats.format(stats.longestStretch(at: now)))
+            Button("Reset Statistics…") { isConfirmingReset = true }
+                .confirmationDialog("Reset all statistics?", isPresented: $isConfirmingReset) {
+                    Button("Reset", role: .destructive) { controller.resetStats() }
+                }
+        }
+        .monospacedDigit()
+    }
+}
+
+private struct GeneralSection: View {
+    let showWelcome: () -> Void
+    @State private var launchAtLogin = LaunchAtLogin.isEnabled
+    @State private var launchAtLoginError: String?
+
+    var body: some View {
+        Section("General") {
+            Toggle("Launch at login", isOn: $launchAtLogin)
+                .onChange(of: launchAtLogin) { _, enabled in update(enabled) }
+            if let launchAtLoginError {
+                Text(launchAtLoginError).foregroundStyle(.red).font(.callout)
+            } else if LaunchAtLogin.needsApproval {
+                Text("Approve thumbs-out in System Settings › General › Login Items.")
+                    .foregroundStyle(.secondary).font(.callout)
+            }
+            Button("Show Welcome Again…", action: showWelcome)
+        }
+    }
+
+    private func update(_ enabled: Bool) {
+        guard enabled != LaunchAtLogin.isEnabled else { return }
+        do {
+            try LaunchAtLogin.setEnabled(enabled)
+            launchAtLoginError = nil
+        } catch {
+            launchAtLoginError = "Couldn't change the login item: \(error.localizedDescription)"
+            launchAtLogin = LaunchAtLogin.isEnabled
+        }
+    }
+}

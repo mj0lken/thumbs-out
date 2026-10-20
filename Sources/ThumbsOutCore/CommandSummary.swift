@@ -1,0 +1,58 @@
+/// Turns a process's arguments into a short, human-readable command for the menu.
+public enum CommandSummary {
+    public static let defaultMaxLength = 60
+
+    public static func summarize(_ arguments: [String], maxLength: Int = defaultMaxLength) -> String {
+        guard let first = arguments.first else { return "" }
+        let record = ProcessRecord(pid: 0, ppid: 0, path: "", arguments: arguments)
+
+        let raw: String
+        if ActivityDetector.isShell(record), let script = shellScript(arguments) {
+            raw = unwrapEval(script) ?? script
+        } else {
+            let executable = first.split(separator: "/").last.map(String.init) ?? first
+            raw = ([executable] + arguments.dropFirst()).joined(separator: " ")
+        }
+        return truncate(collapseWhitespace(raw), to: maxLength)
+    }
+
+    /// The script passed to `sh -c` and friends: the first non-flag argument after the `c` flag.
+    static func shellScript(_ arguments: [String]) -> String? {
+        guard let flagIndex = arguments.dropFirst().firstIndex(where: ActivityDetector.isCommandFlag) else {
+            return nil
+        }
+        return arguments[(flagIndex + 1)...].first { !$0.hasPrefix("-") }
+    }
+
+    /// Claude Code runs commands as `… && eval '<command>' < /dev/null && pwd -P >| …`.
+    /// Extracts `<command>`, undoing the `'"'"'` escaping of embedded single quotes.
+    static func unwrapEval(_ script: String) -> String? {
+        let marker = "eval '"
+        let escapedQuote = "'\"'\"'"
+        guard let start = script.range(of: marker)?.upperBound else { return nil }
+
+        var result = ""
+        var index = start
+        while index < script.endIndex {
+            if script[index...].hasPrefix(escapedQuote) {
+                result.append("'")
+                index = script.index(index, offsetBy: escapedQuote.count)
+            } else if script[index] == "'" {
+                return result
+            } else {
+                result.append(script[index])
+                index = script.index(after: index)
+            }
+        }
+        return nil
+    }
+
+    private static func collapseWhitespace(_ text: String) -> String {
+        text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+
+    private static func truncate(_ text: String, to maxLength: Int) -> String {
+        guard text.count > maxLength, maxLength > 1 else { return text }
+        return text.prefix(maxLength - 1) + "…"
+    }
+}

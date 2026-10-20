@@ -64,8 +64,8 @@ section { padding: var(--space-section) var(--gutter); max-width: var(--max); ma
   border-bottom: 1px solid var(--night-faint);
   transition: transform 300ms var(--ease-out), opacity 300ms;
 }
-/* On the desktop stage the site header steps aside for the macOS menu bar. */
-body.on-desktop .site-header { transform: translateY(-100%); opacity: 0; }
+/* Once the lid starts opening, the site header steps aside (for the laptop, then the macOS menu bar). */
+body.story-playing .site-header { transform: translateY(-100%); opacity: 0; }
 .nav { max-width: var(--max); margin: 0 auto; padding: 0.7rem var(--gutter); display: flex; align-items: center; gap: 1.5rem; }
 .brand { display: flex; align-items: center; gap: 0.65rem; text-decoration: none; font-family: var(--font-display); font-weight: 900; font-size: 1.2rem; }
 .mark { width: 2rem; height: 2rem; }

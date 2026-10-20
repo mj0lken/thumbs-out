@@ -179,7 +179,7 @@ function buildLaptop(renderer, environment) {
 
   const displayCenter = new THREE.Vector3(0, -0.04, DISPLAY.chin + DISPLAY_D / 2);
   const display = new THREE.Mesh(
-    new THREE.PlaneGeometry(DISPLAY_W, DISPLAY_D).rotateX(Math.PI / 2),
+    displayGeometry(),
     overlay(new THREE.MeshBasicMaterial({ map: canvasTexture(drawScreen, 2048, Math.round(2048 * DISPLAY_D / DISPLAY_W), anisotropy), toneMapped: false })),
   );
   display.position.copy(displayCenter);
@@ -219,6 +219,15 @@ function overlay(material, level = 2) {
   return material;
 }
 
+/** The display panel: top corners concentric with the lid's, softer ones at the bottom. */
+function displayGeometry() {
+  const geometry = new THREE.ShapeGeometry(roundedRect(DISPLAY_W, DISPLAY_D, CORNER - DISPLAY.side, 0.3), 12);
+  // ShapeGeometry's UVs are in shape units; map them onto the screen texture's 0–1 range.
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / DISPLAY_W + 0.5, uv.getY(i) / DISPLAY_D + 0.5);
+  return geometry.rotateX(Math.PI / 2);
+}
+
 /** A slab with rounded corners in plan and softened edges, lying on y = 0. */
 function slab(width, depth, thickness, radius, bevel) {
   const geometry = new THREE.ExtrudeGeometry(roundedRect(width - 2 * bevel, depth - 2 * bevel, radius - bevel), {
@@ -231,19 +240,20 @@ function slab(width, depth, thickness, radius, bevel) {
   return geometry;
 }
 
-function roundedRect(width, depth, radius) {
+/** `radius` rounds the corners at +depth (the top of the screen), `bottomRadius` those at -depth. */
+function roundedRect(width, depth, radius, bottomRadius = radius) {
   const x = -width / 2;
   const y = -depth / 2;
   const shape = new THREE.Shape();
-  shape.moveTo(x + radius, y);
-  shape.lineTo(x + width - radius, y);
-  shape.quadraticCurveTo(x + width, y, x + width, y + radius);
+  shape.moveTo(x + bottomRadius, y);
+  shape.lineTo(x + width - bottomRadius, y);
+  shape.quadraticCurveTo(x + width, y, x + width, y + bottomRadius);
   shape.lineTo(x + width, y + depth - radius);
   shape.quadraticCurveTo(x + width, y + depth, x + width - radius, y + depth);
   shape.lineTo(x + radius, y + depth);
   shape.quadraticCurveTo(x, y + depth, x, y + depth - radius);
-  shape.lineTo(x, y + radius);
-  shape.quadraticCurveTo(x, y, x + radius, y);
+  shape.lineTo(x, y + bottomRadius);
+  shape.quadraticCurveTo(x, y, x + bottomRadius, y);
   return shape;
 }
 

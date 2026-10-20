@@ -126,9 +126,10 @@
       }
     }
 
-    const copyT = progressIn(skipLaptop ? [0.0, 0.04] : [0.0, 0.11], scrolled);
-    copy.style.opacity = String(1 - copyT);
-    copy.style.transform = `translateY(${-60 * ease(copyT)}px)`;
+    // The headline is gone before the screen rises behind it: up and back, fading out.
+    const copyT = progressIn(skipLaptop ? [0.0, 0.04] : [0.0, 0.055], scrolled);
+    copy.style.opacity = String(1 - ease(copyT));
+    copy.style.transform = `translateY(${-90 * ease(copyT)}px) scale(${1 - 0.06 * ease(copyT)})`;
     copy.style.visibility = copyT >= 1 ? "hidden" : "visible";
 
     // 3. The desktop takes over from the zoomed screen.
@@ -136,7 +137,7 @@
     desktop.style.opacity = String(reveal);
     desktop.classList.toggle("is-visible", reveal > 0);
     canvas.style.opacity = String(1 - progressIn([PHASE.reveal[1] - 0.01, PHASE.reveal[1] + 0.01], p));
-    document.body.classList.toggle("on-desktop", reveal > 0.5 && p < 0.995);
+    document.body.classList.toggle("story-playing", p > PHASE.open[0] && p < 0.995);
 
     // 4. The cursor moves to the thumb and clicks; the panel drops down.
     const point = easeInOut(progressIn(PHASE.point, p));

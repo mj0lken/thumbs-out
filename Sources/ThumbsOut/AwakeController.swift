@@ -1,6 +1,7 @@
 import ThumbsOutCore
 import Foundation
 import Observation
+import os
 
 /// Polls the process table, decides whether to keep the Mac awake and holds the power assertion.
 @MainActor
@@ -19,6 +20,8 @@ final class AwakeController {
     let lid = LidSleepController()
 
     @ObservationIgnored private let assertion = SleepAssertion()
+    @ObservationIgnored private let spawnWatcher = SpawnWatcher()
+    @ObservationIgnored private var transcriptScanner = TranscriptScanner()
     @ObservationIgnored private var lastActivity: Date?
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private var settingsObserver: NSObjectProtocol?
@@ -31,6 +34,7 @@ final class AwakeController {
     @ObservationIgnored private var lastStatsSave: Date?
     @ObservationIgnored private var lastCPUSample: CPUSample?
 
+    private static let log = Logger(subsystem: "com.mj0lken.thumbs-out", category: "detection")
     private static let settingsDebounce: Duration = .milliseconds(400)
     /// Installed apps rarely change; rescanning once a minute is plenty.
     private static let rescanInterval: TimeInterval = 60
@@ -167,30 +171,64 @@ final class AwakeController {
             await rescanAgents()
         }
         let previousSample = lastCPUSample
-        let (detected, running, power, sample) = await Task.detached(priority: .utility) {
+        let transcriptScanner = transcriptScanner
+        let spawnWatcher = spawnWatcher
+        let scan = await Task.detached(priority: .utility) {
             let snapshot = ProcessLister.snapshot()
             let uptime = ProcessInfo.processInfo.systemUptime
-            let commands = shouldDetect
-                ? detector.activeCommands(in: snapshot, watching: agents)
-                    + RuntimeActivityDetector().busyRuntimes(
-                        in: snapshot, uptime: uptime, previous: previousSample, watching: agents
-                    )
-                : []
-            return (
-                commands, ActivityDetector.runningAgents(in: snapshot), SystemPowerReader.read(),
-                RuntimeActivityDetector.sample(snapshot, uptime: uptime)
+            spawnWatcher.update(
+                targets: shouldDetect ? detector.spawnWatchTargets(in: snapshot, watching: agents) : [],
+                detector: detector, watching: agents
+            )
+            let transcripts = shouldDetect
+                ? transcriptScanner.scanning(agents, home: TranscriptFolders.home, now: Date(), list: TranscriptFolders.list)
+                : (scanner: transcriptScanner, writers: [])
+            return Scan(
+                commands: shouldDetect
+                    ? detector.activeCommands(in: snapshot, watching: agents)
+                        + RuntimeActivityDetector().busyRuntimes(
+                            in: snapshot, uptime: uptime, previous: previousSample, watching: agents
+                        )
+                    : [],
+                agentPIDs: ActivityDetector.agentPIDs(in: snapshot),
+                transcriptScanner: transcripts.scanner,
+                transcriptWriters: transcripts.writers,
+                power: SystemPowerReader.read(),
+                cpuSample: RuntimeActivityDetector.sample(snapshot, uptime: uptime)
             )
         }.value
         guard isRunning, generation == refreshGeneration else { return }
-        lastCPUSample = sample
-        commands = detected
-        runningAgents = running
-        self.power = power
+        lastCPUSample = scan.cpuSample
+        self.transcriptScanner = scan.transcriptScanner
+        if !scan.transcriptWriters.isEmpty {
+            let writers = scan.transcriptWriters.map(\.id).sorted().joined(separator: ", ")
+            Self.log.debug("Transcript writes by \(writers, privacy: .public)")
+        }
+        // Taken only once the scan is current, so a superseded one can't drop them.
+        let shortCommands = spawnWatcher.takeCommands().filter { agents.contains($0.agent) }
+        commands = shouldDetect
+            ? ActivityDetector.addingRecentWork(
+                to: scan.commands, shortCommands: shortCommands,
+                transcriptWriters: scan.transcriptWriters, agentPIDs: scan.agentPIDs
+            )
+            : []
+        runningAgents = Set(scan.agentPIDs.keys)
+        power = scan.power
 
         let now = Date()
         if !commands.isEmpty { lastActivity = now }
         apply(settings: settings, now: now)
         recordStats(at: now, pollInterval: settings.pollIntervalSeconds)
+    }
+
+    /// What one detection tick found off the main actor.
+    private struct Scan: Sendable {
+        let commands: [DetectedCommand]
+        let agentPIDs: [Agent: Int32]
+        let transcriptScanner: TranscriptScanner
+        let transcriptWriters: Set<Agent>
+        let power: SystemPowerState
+        let cpuSample: CPUSample
     }
 
     private func recordStats(at now: Date, pollInterval: Int) {
@@ -239,7 +277,7 @@ final class AwakeController {
     private var assertionReason: String {
         switch decision {
         case .agentsActive(let agents):
-            "thumbs-out: \(agents.map(\.displayName).joined(separator: ", ")) running commands"
+            "thumbs-out: \(agents.map(\.displayName).joined(separator: ", ")) working"
         case .manual: "thumbs-out: manual session"
         case .gracePeriod: "thumbs-out: waiting for agents to finish"
         case .sleepAllowed: "thumbs-out"

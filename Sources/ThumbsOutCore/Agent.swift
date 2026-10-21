@@ -36,6 +36,9 @@ public struct Agent: Hashable, Sendable, Identifiable, CaseIterable {
     public private(set) var apps: [App] = []
     public private(set) var commandLineTools: [String] = []
     public private(set) var bundleIdentifiers: [String] = []
+    /// Where it appends to session transcripts, under the home folder. Only names and modification
+    /// times are ever read, never what's in them.
+    public private(set) var transcripts: [TranscriptPattern] = []
 
     public var isWatchedByDefault: Bool { category == .agent }
 
@@ -70,14 +73,17 @@ extension Agent {
         // The installer's binary is named after its version (…/claude/versions/2.1.72).
         processNames: ["claude"], pathFragments: ["/claude/versions/"], argumentFragments: ["@anthropic-ai/claude-code"],
         apps: [App(bundle: "Claude.app", name: "Claude app")], commandLineTools: ["claude"],
-        bundleIdentifiers: ["com.anthropic.claudefordesktop"]
+        bundleIdentifiers: ["com.anthropic.claudefordesktop"],
+        // One file per session; a subagent writes only to its own file in the session's folder.
+        transcripts: [".claude/projects/*/*.jsonl", ".claude/projects/*/*/subagents/*.jsonl"]
     )
 
     public static let chatGPT = Agent(
         id: "chatGPT", displayName: "ChatGPT / Codex",
         processNames: ["codex"], pathFragments: ["/ChatGPT.app/", "/Codex.app/"], argumentFragments: ["@openai/codex"],
         apps: [App(bundle: "ChatGPT.app", name: "ChatGPT app"), App(bundle: "Codex.app", name: "Codex app")],
-        commandLineTools: ["codex"], bundleIdentifiers: ["com.openai.chat", "com.openai.codex"]
+        commandLineTools: ["codex"], bundleIdentifiers: ["com.openai.chat", "com.openai.codex"],
+        transcripts: [".codex/sessions/*/*/*/rollout-*.jsonl"] // sessions/2026/10/21/rollout-….jsonl
     )
 
     /// Google's agents: Antigravity and its `agy` CLI, plus Gemini CLI, which `agy` replaces.
@@ -85,7 +91,8 @@ extension Agent {
         id: "antigravity", displayName: "Antigravity / Gemini",
         processNames: ["agy", "antigravity", "gemini"], pathFragments: ["/Antigravity.app/"],
         argumentFragments: ["@google/gemini-cli"], apps: [App(bundle: "Antigravity.app", name: "Antigravity")],
-        commandLineTools: ["agy", "antigravity", "gemini"], bundleIdentifiers: ["com.google.antigravity"]
+        commandLineTools: ["agy", "antigravity", "gemini"], bundleIdentifiers: ["com.google.antigravity"],
+        transcripts: [".gemini/tmp/*/chats/session-*.json"] // Gemini CLI's saved chats
     )
 
     /// Google's separate VS Code-based editor, with the agent built into its terminal.

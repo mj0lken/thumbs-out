@@ -39,63 +39,115 @@ public struct ActivityDetector: Sendable {
     }
 
     public func activeCommands(in snapshot: [ProcessRecord], watching agents: Set<Agent>) -> [DetectedCommand] {
-        let tree = ProcessTree(snapshot)
-        let commandAgents = agents.filter { $0.category != .modelRuntime }
-        return tree.roots(for: commandAgents).flatMap { root, agent in
-            commands(below: root, agent: agent, tree: tree, watched: commandAgents)
-        }
+        walks(in: snapshot, watching: agents).flatMap(\.commands)
     }
 
     /// Agents with any process running, whether or not they're busy.
     public static func runningAgents(in snapshot: [ProcessRecord]) -> Set<Agent> {
-        Set(ProcessTree(snapshot).roots(for: Set(Agent.allCases)).map(\.1))
+        Set(agentPIDs(in: snapshot).keys)
+    }
+
+    /// Each running agent's outermost process.
+    public static func agentPIDs(in snapshot: [ProcessRecord]) -> [Agent: Int32] {
+        ProcessTree(snapshot).roots(for: Set(Agent.allCases)).reduce(into: [:]) { pids, root in
+            if pids[root.1] == nil { pids[root.1] = root.0.pid }
+        }
+    }
+
+    /// One walk per watched agent's root process, skipping local model runtimes.
+    func walks(in snapshot: [ProcessRecord], watching agents: Set<Agent>) -> [Walk] {
+        let tree = ProcessTree(snapshot)
+        let commandAgents = Self.commandAgents(agents)
+        return tree.roots(for: commandAgents).map { root, agent in
+            walk(from: root, agent: agent, tree: tree, watched: commandAgents)
+        }
+    }
+
+    static func commandAgents(_ agents: Set<Agent>) -> Set<Agent> {
+        agents.filter { $0.category != .modelRuntime }
+    }
+
+    /// What one agent's tree holds: the commands running in it, and the processes they start under.
+    struct Walk {
+        var commands: [DetectedCommand] = []
+        var spawners: [SpawnWatchTarget] = []
+    }
+
+    /// How the walk treats a process below an agent.
+    enum Step {
+        case command
+        case skip
+        case terminal
+        case descend
+    }
+
+    func step(for process: ProcessRecord, agent: Agent, watched: Set<Agent>) -> Step {
+        if Self.isCommandShell(process) { return isBackgroundCommandShell(process) ? .skip : .command }
+        if Self.isShell(process) { return .terminal }
+        let owner = Agent.agent(for: process)
+        if let owner, owner != agent, watched.contains(owner) { return .skip }
+        if owner != agent, isBackgroundService(process) { return .skip }
+        return .descend
     }
 
     /// Walks one agent's tree. A watched agent nested inside it (Claude Code inside VS Code) is
     /// walked from its own root instead, so each command is credited to the innermost agent.
-    private func commands(
-        below root: ProcessRecord, agent: Agent, tree: ProcessTree, watched: Set<Agent>
-    ) -> [DetectedCommand] {
-        var found: [DetectedCommand] = []
+    private func walk(from root: ProcessRecord, agent: Agent, tree: ProcessTree, watched: Set<Agent>) -> Walk {
+        var result = Walk(spawners: [SpawnWatchTarget(process: root, agent: agent, role: .process)])
         var visited: Set<Int32> = [root.pid]
         var stack = tree.children(of: root.pid)
 
         while let process = stack.popLast() {
             guard visited.insert(process.pid).inserted else { continue }
-
-            if Self.isCommandShell(process) {
-                if !isBackgroundCommandShell(process) {
-                    found.append(DetectedCommand(agent: agent, pid: process.pid, summary: summary(of: process)))
-                }
-                continue // A command shell's subtree belongs to the command it runs.
-            }
-            if Self.isShell(process) {
-                let (command, nested) = terminalActivity(in: process, agent: agent, tree: tree, watched: watched)
-                if let command { found.append(command) }
-                stack.append(contentsOf: nested)
+            switch step(for: process, agent: agent, watched: watched) {
+            case .command:
+                // A command shell's subtree belongs to the command it runs.
+                result.commands.append(DetectedCommand(agent: agent, pid: process.pid, summary: summary(of: process)))
+            case .skip:
                 continue
+            case .terminal:
+                result.spawners.append(SpawnWatchTarget(process: process, agent: agent, role: .terminal))
+                let (command, nested) = terminalActivity(in: process, agent: agent, tree: tree, watched: watched)
+                if let command { result.commands.append(command) }
+                stack.append(contentsOf: nested)
+            case .descend:
+                result.spawners.append(SpawnWatchTarget(process: process, agent: agent, role: .process))
+                stack.append(contentsOf: tree.children(of: process.pid))
             }
-            let owner = Agent.agent(for: process)
-            if let owner, owner != agent, watched.contains(owner) { continue }
-            if owner != agent, isBackgroundService(process) { continue }
-            stack.append(contentsOf: tree.children(of: process.pid))
         }
-        return found.sorted { $0.pid < $1.pid }
+        result.commands.sort { $0.pid < $1.pid }
+        return result
     }
 
-    /// An interactive shell (a terminal tab) runs a command when it has a child process. Children
-    /// that belong to this same agent (its own CLI in its own IDE's terminal) are walked further;
-    /// an idle session of another watched agent isn't a command, since that agent covers itself.
+    /// How a child of an interactive shell (a terminal tab) counts. Children that belong to this
+    /// same agent (its own CLI in its own IDE's terminal) are walked further; an idle session of
+    /// another watched agent isn't a command, since that agent covers itself.
+    enum TerminalChild {
+        case command
+        case skip
+        case nested
+    }
+
+    func terminalChild(_ child: ProcessRecord, agent: Agent, watched: Set<Agent>) -> TerminalChild {
+        if ignoredProcessNames.contains(child.name) { return .skip }
+        switch Agent.agent(for: child) {
+        case agent: return .nested
+        case let owner? where watched.contains(owner): return .skip
+        default: return .command
+        }
+    }
+
+    /// An interactive shell runs a command when it has a child process.
     private func terminalActivity(
         in shell: ProcessRecord, agent: Agent, tree: ProcessTree, watched: Set<Agent>
     ) -> (command: DetectedCommand?, nested: [ProcessRecord]) {
         var nested: [ProcessRecord] = []
         var commands: [ProcessRecord] = []
-        for child in tree.children(of: shell.pid) where !ignoredProcessNames.contains(child.name) {
-            switch Agent.agent(for: child) {
-            case agent: nested.append(child)
-            case let owner? where watched.contains(owner): continue
-            default: commands.append(child)
+        for child in tree.children(of: shell.pid) {
+            switch terminalChild(child, agent: agent, watched: watched) {
+            case .nested: nested.append(child)
+            case .skip: continue
+            case .command: commands.append(child)
             }
         }
         let command = commands.min { $0.pid < $1.pid }.map {
@@ -105,7 +157,7 @@ public struct ActivityDetector: Sendable {
     }
 
     /// Processes we may not inspect (e.g. `sudo` children) have no arguments.
-    private func summary(of process: ProcessRecord) -> String {
+    func summary(of process: ProcessRecord) -> String {
         let text = CommandSummary.summarize(process.arguments)
         return text.isEmpty ? "process \(process.pid)" : text
     }

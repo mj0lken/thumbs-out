@@ -73,10 +73,24 @@ Every few seconds thumbs-out looks at the process tree under each agent:
 - **MCP servers** and other long-lived helpers (`npx`, `uvx`, anything with `mcp` in its arguments,
   prompt helpers like `gitstatusd`) are skipped so they don't keep the Mac awake forever.
 
-While anything is running, it holds an IOKit `PreventUserIdleSystemSleep` assertion (or
+Agents also work between those looks, so two more signals count:
+
+- **Short commands.** Most commands an agent runs take milliseconds and finish before the next look.
+  thumbs-out watches the processes commands start under with kqueue (`EVFILT_PROC`) and checks each
+  new child the moment it starts, by the same rules: a quick `cat` counts, an MCP server starting
+  doesn't, and an idle session starts nothing.
+- **Session transcripts.** Reading, editing and thinking run no process at all, but the agent writes
+  them to its session transcript: Claude Code to `~/.claude/projects/…/*.jsonl` (subagents to their
+  own file next to it), Codex to `~/.codex/sessions/…/rollout-*.jsonl`, Gemini CLI to
+  `~/.gemini/tmp/…/chats/session-*.json`. An agent whose transcript changed since the last look,
+  while its process is running, counts as working. Only file names and modification times are read,
+  never what's in the files. Each look lists just the folders with a transcript written in the last
+  hour, and once a minute all of them, to notice a session picked up again after a long pause.
+
+While an agent is working, it holds an IOKit `PreventUserIdleSystemSleep` assertion (or
 `PreventUserIdleDisplaySleep` if you choose to keep the display on). That's the same mechanism
-Amphetamine and `caffeinate` use. After the last command it waits for a **grace period** (5 minutes
-by default) so the Mac stays awake while the agent thinks between commands.
+Amphetamine and `caffeinate` use. After the last sign of work it waits for a **grace period** (5
+minutes by default) so the Mac stays awake while the agent thinks between messages.
 
 ## First launch
 
@@ -177,6 +191,9 @@ Developed and tested on an M4 Pro MacBook Pro running macOS 26.
   started yourself.
 - Cloud-only agents (ChatGPT agent mode, Codex cloud tasks) run on remote servers, so there's no
   local process to detect.
+- Transcripts are only watched for Claude Code, Codex and Gemini CLI, in their default folders (not
+  a custom `CLAUDE_CONFIG_DIR` or `CODEX_HOME`). Other agents count while they run commands, and
+  the grace period covers the time they spend thinking.
 - Without lid-closed mode, closing the lid sleeps the Mac unless it's in Apple's clamshell mode
   (power adapter plus external display).
 

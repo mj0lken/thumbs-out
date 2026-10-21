@@ -10,6 +10,7 @@ enum SettingsKey {
     static let ignoredProcessNames = "ignoredProcessNames"
     static let isLidClosedModeEnabled = "isLidClosedModeEnabled"
     static let minimumBatteryPercent = "minimumBatteryPercent"
+    static let locksScreenOnLidClose = "locksScreenOnLidClose"
     static let checksForUpdates = "checksForUpdates"
 
     static func watch(_ agent: Agent) -> String { "watch.\(agent.id)" }
@@ -29,6 +30,8 @@ struct AppSettings: Equatable {
     /// Off by default: it needs a one-time admin setup and keeps a closed Mac running.
     var isLidClosedModeEnabled = false
     var minimumBatteryPercent = 20
+    /// On by default: a Mac kept awake in a bag shouldn't open to an unlocked session.
+    var locksScreenOnLidClose = true
 
     static let defaults = AppSettings()
 
@@ -45,6 +48,7 @@ struct AppSettings: Equatable {
             SettingsKey.ignoredProcessNames: defaultIgnoredProcessNamesText,
             SettingsKey.isLidClosedModeEnabled: defaults.isLidClosedModeEnabled,
             SettingsKey.minimumBatteryPercent: defaults.minimumBatteryPercent,
+            SettingsKey.locksScreenOnLidClose: defaults.locksScreenOnLidClose,
             // On by default: one request to GitHub a day, and nothing is installed without the user.
             SettingsKey.checksForUpdates: true,
         ]
@@ -64,7 +68,8 @@ struct AppSettings: Equatable {
             watchedAgents: Set(Agent.allCases.filter { store.bool(forKey: SettingsKey.watch($0)) }),
             ignoredProcessNames: parseNames(store.string(forKey: SettingsKey.ignoredProcessNames) ?? ""),
             isLidClosedModeEnabled: store.bool(forKey: SettingsKey.isLidClosedModeEnabled),
-            minimumBatteryPercent: store.integer(forKey: SettingsKey.minimumBatteryPercent).clamped(to: 0...100)
+            minimumBatteryPercent: store.integer(forKey: SettingsKey.minimumBatteryPercent).clamped(to: 0...100),
+            locksScreenOnLidClose: store.bool(forKey: SettingsKey.locksScreenOnLidClose)
         )
     }
 

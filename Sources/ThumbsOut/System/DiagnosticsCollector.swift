@@ -69,6 +69,10 @@ enum DiagnosticsCollector {
         var facts: [IssueReport.Fact] = [
             .init("Lid-closed setup (sudoers rule)", setupState(lid)),
             .init("Lid-closed mode", onOff(settings.isLidClosedModeEnabled)),
+            .init(
+                "Lock screen on lid close",
+                ScreenLocker.isAvailable ? onOff(settings.locksScreenOnLidClose) : "unavailable on this macOS"
+            ),
             .init("Sleep switch (pmset disablesleep)", sleepSwitch(controller)),
             .init("Closing the lid now", StatusPresentation.lidLine(for: controller.lidBehavior)),
             .init("Lid sleep decision", describe(controller.lidDecision)),

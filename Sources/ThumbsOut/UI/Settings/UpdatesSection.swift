@@ -20,7 +20,7 @@ struct UpdatesSection: View {
                         Button("Download…") { NSWorkspace.shared.open(release.pageURL) }
                     }
                     Button("Check Now") { Task { await updates.checkNow() } }
-                        .disabled(updates.state == .checking || updates.currentVersion == nil)
+                        .disabled(updates.status == .checking || updates.currentVersion == nil)
                 }
             } header: {
                 Text("Updates")
@@ -33,19 +33,19 @@ struct UpdatesSection: View {
 
     @ViewBuilder
     private func status(of updates: UpdateChecker) -> some View {
-        switch updates.state {
-        case .checking:
+        switch (updates.status, updates.availableUpdate) {
+        case (.checking, _):
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
                 Text("Checking…").foregroundStyle(.secondary)
             }
-        case .available(let release):
-            Text("thumbs-out \(release.version.description) is available").foregroundStyle(Theme.workingInk)
-        case .failed(let message):
+        case (.failed(let message), _):
             Text("Couldn't check: \(message)").foregroundStyle(.red)
-        case .upToDate:
+        case (_, .some(let release)):
+            Text("thumbs-out \(release.version.description) is available").foregroundStyle(Theme.workingInk)
+        case (.upToDate, nil):
             Text("Up to date").foregroundStyle(.secondary)
-        case .idle:
+        case (.idle, nil):
             Text(updates.lastCheck.map { "Last checked \($0.formatted(.relative(presentation: .named)))" } ?? "Not checked yet")
                 .foregroundStyle(.secondary)
         }

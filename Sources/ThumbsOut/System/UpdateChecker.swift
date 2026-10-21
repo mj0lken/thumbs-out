@@ -8,16 +8,19 @@ import ThumbsOutCore
 @MainActor
 @Observable
 final class UpdateChecker {
-    enum State: Equatable {
+    /// What the latest check is doing or did. A found release is kept separately, so a check that's
+    /// running or failed doesn't hide it.
+    enum Status: Equatable {
         case idle
         case checking
         case upToDate
-        case available(LatestRelease)
         case failed(String)
     }
 
-    private(set) var state: State = .idle
+    private(set) var status: Status = .idle
     private(set) var lastCheck: Date?
+    /// The newest release seen that's newer than this build; kept until a successful check says otherwise.
+    private(set) var availableUpdate: LatestRelease?
 
     /// Nil in debug builds, which aren't app bundles: those never check.
     let currentVersion = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String).flatMap(AppVersion.init)
@@ -25,10 +28,6 @@ final class UpdateChecker {
         .contains { FileManager.default.fileExists(atPath: $0) }
 
     static let homebrewCommand = "brew upgrade --cask thumbs-out"
-
-    var availableUpdate: LatestRelease? {
-        if case .available(let release) = state { release } else { nil }
-    }
 
     @ObservationIgnored private var loop: Task<Void, Never>?
     private static let log = Logger(subsystem: "com.mj0lken.thumbs-out", category: "updates")
@@ -46,16 +45,15 @@ final class UpdateChecker {
         lastCheck = defaults.object(forKey: Self.lastCheckKey) as? Date
         // Keep showing a release found earlier, until it's installed or a newer check says otherwise.
         if let tag = defaults.string(forKey: Self.latestTagKey).flatMap(AppVersion.init),
-           let page = defaults.url(forKey: Self.latestPageKey),
-           let update = UpdateCheck.availableUpdate(current: currentVersion, latest: LatestRelease(version: tag, pageURL: page)) {
-            state = .available(update)
+           let page = defaults.url(forKey: Self.latestPageKey), LatestRelease.isTrustedPage(page) {
+            availableUpdate = UpdateCheck.availableUpdate(current: currentVersion, latest: LatestRelease(version: tag, pageURL: page))
         }
     }
 
     #if DEBUG
     /// Snapshots: show a found update without touching the network or the user's defaults.
     init(previewing release: LatestRelease) {
-        state = .available(release)
+        availableUpdate = release
     }
     #endif
 
@@ -77,19 +75,21 @@ final class UpdateChecker {
 
     /// The Settings button: checks now, whatever the schedule and the automatic setting say.
     func checkNow() async {
-        guard state != .checking else { return }
+        guard status != .checking else { return }
         guard let currentVersion else {
-            state = .failed("This build has no version number to compare.")
+            status = .failed("This build has no version number to compare.")
             return
         }
-        state = .checking
+        status = .checking
         do {
             let latest = try await Self.fetchLatest(currentVersion: currentVersion)
             record(latest, at: Date())
-            state = UpdateCheck.availableUpdate(current: currentVersion, latest: latest).map(State.available) ?? .upToDate
+            availableUpdate = UpdateCheck.availableUpdate(current: currentVersion, latest: latest)
+            status = availableUpdate == nil ? .upToDate : .idle
         } catch {
+            // Not recorded as a check, so the hourly wake tries again; a release found earlier stays.
             Self.log.error("Update check failed: \(error.localizedDescription, privacy: .public)")
-            state = .failed(Self.describe(error))
+            status = .failed(Self.describe(error))
         }
     }
 

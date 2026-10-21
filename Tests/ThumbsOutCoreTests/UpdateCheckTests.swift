@@ -84,6 +84,13 @@ struct UpdateCheckTests {
         #expect(throws: DecodingError.self) { try JSONDecoder().decode(LatestRelease.self, from: json) }
     }
 
+    @Test("trusts only https pages on github.com")
+    func trustedPages() throws {
+        #expect(LatestRelease.isTrustedPage(page))
+        #expect(!LatestRelease.isTrustedPage(try #require(URL(string: "http://github.com/mj0lken/thumbs-out"))))
+        #expect(!LatestRelease.isTrustedPage(try #require(URL(string: "https://github.com.example.com/x"))))
+    }
+
     @Test("only trusts release pages on github.com")
     func rejectsForeignPage() {
         let json = Data(#"{"tag_name": "v1.2.0", "html_url": "https://example.com/thumbs-out.zip"}"#.utf8)

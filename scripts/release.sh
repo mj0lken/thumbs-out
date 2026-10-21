@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
-# Cuts a release in one go: bumps the version, runs the tests, builds and zips the app, tags and
-# publishes the GitHub release, checks the published download, and updates the Homebrew cask.
+# Cuts a release in one go: bumps the version, runs the tests, builds and zips the app, publishes the
+# GitHub release, checks the uploaded zip, and updates the Homebrew cask.
 #
 #   scripts/release.sh 1.2.0                     # release
-#   scripts/release.sh 1.2.0 --dry-run           # everything local (tests, build, zip, notes), nothing published
+#   scripts/release.sh 1.2.0 --dry-run           # everything local (tests, build, zip, notes, cask), nothing published
 #   scripts/release.sh 1.2.0 --notes-file x.md   # your own release notes instead of the generated ones
+#
+# Order matters: everything that can fail locally (tests, build, notes, the cask edit and its style
+# check) runs before anything is published. The release is created as a draft, its zip downloaded and
+# compared, and only then made public, with the cask pushed right after. If a step fails, the script
+# says what's already done and how to finish or undo it.
 #
 # Expects the tap checked out next to this repo (../homebrew-tap), or TAP_DIR set.
 set -euo pipefail
-
-cd "$(dirname "$0")/.."
-
-REPO="mj0lken/thumbs-out"
-PLIST="Resources/Info.plist"
-TAP_DIR="${TAP_DIR:-$(cd .. && pwd)/homebrew-tap}"
-CASK="$TAP_DIR/Casks/thumbs-out.rb"
 
 VERSION="${1:-}"
 [[ $# -gt 0 ]] && shift
@@ -23,28 +21,65 @@ NOTES_FILE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) DRY_RUN=true ;;
-    --notes-file) NOTES_FILE="${2:?--notes-file needs a file}"; shift ;;
+    --notes-file)
+      # Resolved before the cd below, so a relative path means relative to where you ran the script.
+      NOTES_FILE="$(cd "$(dirname "${2:?--notes-file needs a file}")" && pwd)/$(basename "$2")"
+      [[ -f "$NOTES_FILE" ]] || { echo "release: no notes file at $2" >&2; exit 2; }
+      shift ;;
     *) echo "release: unknown option $1" >&2; exit 2 ;;
   esac
   shift
 done
 
+cd "$(dirname "$0")/.."
+
+REPO="mj0lken/thumbs-out"
+PLIST="Resources/Info.plist"
+TAP_DIR="${TAP_DIR:-$(cd .. && pwd)/homebrew-tap}"
+CASK="$TAP_DIR/Casks/thumbs-out.rb"
+
 fail() { echo "release: $*" >&2; exit 1; }
 step() { printf '\n==> %s\n' "$*"; }
 # Checks that guard what gets published; a dry run only warns.
 require() { if $DRY_RUN; then echo "(dry run) warning: $1"; else fail "$1"; fi }
-publish() { if $DRY_RUN; then echo "(dry run) skipped: $*"; else "$@"; fi }
 
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "usage: scripts/release.sh X.Y.Z [--dry-run] [--notes-file FILE]"
+TAG="v$VERSION"
 ZIP="build/thumbs-out-$VERSION-arm64.zip"
 NOTES_PATH="build/release-notes-$VERSION.md"
+PREPARED_CASK="build/thumbs-out-$VERSION.cask.rb"
+WORK=$(mktemp -d)
+
+# What's been done so far, for the message if a later step fails.
+DONE=""
+cleanup() {
+  local status=$?
+  # Until the release commit exists, put the version back as it was (also on every dry run).
+  if [[ "$DONE" != *committed* && -f "$WORK/Info.plist" ]]; then cp "$WORK/Info.plist" "$PLIST"; fi
+  if [[ $status -ne 0 && -n "$DONE" ]]; then
+    echo >&2
+    echo "release: stopped after: ${DONE# }" >&2
+    case "$DONE" in
+      *tap-pushed*) ;;
+      *published*) echo "  The release is public but the cask isn't updated. Finish with:" >&2
+                   echo "    cp $PREPARED_CASK $CASK && git -C $TAP_DIR commit -am 'thumbs-out $VERSION' && git -C $TAP_DIR push" >&2 ;;
+      *drafted*)   echo "  A draft release exists (not public). Fix the problem, then: gh release edit $TAG --repo $REPO --draft=false" >&2
+                   echo "  and update the cask; or delete it: gh release delete $TAG --repo $REPO --yes" >&2 ;;
+      *pushed*)    echo "  The commit and tag are on GitHub but there's no release yet. Re-create it with:" >&2
+                   echo "    gh release create $TAG $ZIP --repo $REPO --draft --title 'thumbs-out $VERSION' --notes-file $NOTES_PATH" >&2 ;;
+      *committed*) echo "  Only local: undo with  git tag -d $TAG 2>/dev/null; git reset --hard HEAD~1" >&2 ;;
+    esac
+  fi
+  rm -rf "$WORK"
+}
+trap cleanup EXIT
 
 step "Checking the repository and tools"
 [[ "$(git branch --show-current)" == "main" ]] || require "not on main"
 [[ -z "$(git status --porcelain)" ]] || require "uncommitted changes; commit them first"
 git fetch -q origin --tags
 [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] || require "HEAD isn't origin/main; pull or push first"
-if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then fail "v$VERSION already exists"; fi
+if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then fail "$TAG already exists"; fi
 CURRENT=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST")
 BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST")
 NEWEST=$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -1)
@@ -52,10 +87,10 @@ NEWEST=$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -1)
 gh auth status >/dev/null 2>&1 || require "gh isn't signed in (gh auth login)"
 [[ -f "$CASK" ]] || fail "no cask at $CASK; set TAP_DIR to the homebrew-tap checkout"
 [[ -z "$(git -C "$TAP_DIR" status --porcelain)" ]] || require "the tap has uncommitted changes"
-publish git -C "$TAP_DIR" pull -q --ff-only
+$DRY_RUN || git -C "$TAP_DIR" pull -q --ff-only
 
 step "Bumping $CURRENT ($BUILD) to $VERSION ($((BUILD + 1)))"
-if $DRY_RUN; then trap 'git checkout -q -- "$PLIST"' EXIT; fi # A dry run leaves the version as it was.
+cp "$PLIST" "$WORK/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $((BUILD + 1))" "$PLIST"
 
 step "Testing"
@@ -71,9 +106,19 @@ ditto -c -k --sequesterRsrc --keepParent build/thumbs-out.app "$ZIP"
 SHA=$(shasum -a 256 "$ZIP" | cut -d' ' -f1)
 echo "$ZIP  $SHA"
 
+step "Preparing the Homebrew cask"
+mkdir -p "$WORK/Casks"
+UPDATED="$WORK/Casks/thumbs-out.rb"
+sed -E -e "s/^  version \".*\"$/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"$/  sha256 \"$SHA\"/" "$CASK" > "$UPDATED"
+grep -qx "  version \"$VERSION\"" "$UPDATED" && grep -qx "  sha256 \"$SHA\"" "$UPDATED" \
+  || fail "couldn't set the version and sha256 in $CASK; has its format changed?"
+diff -u "$CASK" "$UPDATED" || true
+brew style "$UPDATED"
+cp "$UPDATED" "$PREPARED_CASK"
+
 step "Writing release notes"
 if [[ -n "$NOTES_FILE" ]]; then
-  cp "$NOTES_FILE" "$NOTES_PATH"
+  cp "$NOTES_FILE" "$WORK/notes.md" && mv "$WORK/notes.md" "$NOTES_PATH"
 else
   PREVIOUS=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
   # Conventional commit subjects since the last release, without their type prefix. Only commits
@@ -101,37 +146,39 @@ EOF
 fi
 cat "$NOTES_PATH"
 
-step "Publishing v$VERSION"
-publish git commit -q -m "chore: release $VERSION" -- "$PLIST"
-publish git tag -a "v$VERSION" -m "thumbs-out $VERSION"
-publish git push -q origin main "v$VERSION"
-publish gh release create "v$VERSION" "$ZIP" --repo "$REPO" --title "thumbs-out $VERSION" --notes-file "$NOTES_PATH"
-
-step "Checking the published download"
 if $DRY_RUN; then
-  echo "(dry run) skipped"
-else
-  DOWNLOAD=$(mktemp -d)
-  curl -fsSL -o "$DOWNLOAD/release.zip" "https://github.com/$REPO/releases/download/v$VERSION/$(basename "$ZIP")"
-  [[ "$(shasum -a 256 "$DOWNLOAD/release.zip" | cut -d' ' -f1)" == "$SHA" ]] || fail "the published zip doesn't match the local one"
-  echo "matches $SHA"
+  step "Done (dry run)"
+  echo "Nothing was committed, tagged, published or pushed; the version is back to $CURRENT."
+  exit 0
 fi
+
+step "Publishing $TAG"
+git commit -q -m "chore: release $VERSION" -- "$PLIST"
+DONE="$DONE committed"
+git tag -a "$TAG" -m "thumbs-out $VERSION"
+git push -q origin main "$TAG"
+DONE="$DONE pushed"
+gh release create "$TAG" "$ZIP" --repo "$REPO" --draft --title "thumbs-out $VERSION" --notes-file "$NOTES_PATH"
+DONE="$DONE drafted"
+
+step "Checking the uploaded zip"
+# Drafts aren't reachable by tag, so find the asset through the releases list.
+ASSET_URL=$(gh api "repos/$REPO/releases?per_page=20" \
+  --jq ".[] | select(.tag_name == \"$TAG\") | .assets[] | select(.name == \"$(basename "$ZIP")\") | .url")
+[[ -n "$ASSET_URL" ]] || fail "can't find the uploaded zip on the draft release"
+gh api -H "Accept: application/octet-stream" "$ASSET_URL" > "$WORK/uploaded.zip"
+[[ "$(shasum -a 256 "$WORK/uploaded.zip" | cut -d' ' -f1)" == "$SHA" ]] \
+  || fail "the uploaded zip doesn't match the local one"
+echo "matches $SHA"
+gh release edit "$TAG" --repo "$REPO" --draft=false --latest
+DONE="$DONE published"
 
 step "Updating the Homebrew cask"
-UPDATED=$(mktemp)
-sed -E -e "s/^  version \".*\"$/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"$/  sha256 \"$SHA\"/" "$CASK" > "$UPDATED"
-diff -u "$CASK" "$UPDATED" || true
-if $DRY_RUN; then
-  echo "(dry run) cask left as it was"
-else
-  cp "$UPDATED" "$CASK"
-  brew style "$CASK"
-  git -C "$TAP_DIR" commit -q -m "thumbs-out $VERSION" -- Casks/thumbs-out.rb
-  git -C "$TAP_DIR" push -q
-fi
+cp "$UPDATED" "$CASK"
+git -C "$TAP_DIR" commit -q -m "thumbs-out $VERSION" -- Casks/thumbs-out.rb
+git -C "$TAP_DIR" push -q
+DONE="$DONE tap-pushed"
 
 step "Done"
-echo "Release:  https://github.com/$REPO/releases/tag/v$VERSION"
+echo "Release:  https://github.com/$REPO/releases/tag/$TAG"
 echo "Homebrew: brew upgrade --cask thumbs-out (after brew update)"
-$DRY_RUN && echo "This was a dry run: nothing was committed, tagged, published or pushed."
-exit 0

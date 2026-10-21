@@ -47,6 +47,11 @@ public struct LatestRelease: Sendable, Equatable, Decodable {
         self.pageURL = pageURL
     }
 
+    /// The page is opened in the browser, so only links that stay on GitHub are followed.
+    public static func isTrustedPage(_ url: URL) -> Bool {
+        url.scheme == "https" && url.host == "github.com"
+    }
+
     private enum CodingKeys: String, CodingKey {
         case tagName = "tag_name"
         case htmlURL = "html_url"
@@ -59,8 +64,7 @@ public struct LatestRelease: Sendable, Equatable, Decodable {
             throw DecodingError.dataCorruptedError(forKey: .tagName, in: container, debugDescription: "Not a version: \(tag)")
         }
         let page = try container.decode(URL.self, forKey: .htmlURL)
-        // The page is opened in the browser, so only follow links that stay on GitHub.
-        guard page.scheme == "https", page.host == "github.com" else {
+        guard Self.isTrustedPage(page) else {
             throw DecodingError.dataCorruptedError(forKey: .htmlURL, in: container, debugDescription: "Not a GitHub page: \(page)")
         }
         self.init(version: version, pageURL: page)

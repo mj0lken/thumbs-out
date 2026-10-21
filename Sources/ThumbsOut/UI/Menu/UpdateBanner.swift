@@ -39,5 +39,9 @@ struct UpdateBanner: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(UpdateChecker.homebrewCommand, forType: .string)
         didCopy = true
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            didCopy = false
+        }
     }
 }

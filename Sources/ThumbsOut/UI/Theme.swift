@@ -16,6 +16,7 @@ enum Theme {
     static let idle = Color.secondary
 
     static let panelWidth: CGFloat = 340
+    static let sidePanelWidth: CGFloat = 300
     static let panelPadding: CGFloat = 14
     static let tileRadius: CGFloat = 12
     static let tilePadding: CGFloat = 12
@@ -70,6 +71,17 @@ struct TileBackground: ViewModifier {
 
 extension View {
     func tile() -> some View { modifier(TileBackground()) }
+
+    /// A list shown beside the menu panel instead of inside it, so the panel keeps its height
+    /// (the menu bar window doesn't resize smoothly). Opens to the left: the menu sits at the
+    /// right of the screen.
+    func sidePanel(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> some View) -> some View {
+        popover(isPresented: isPresented, arrowEdge: .leading) {
+            content()
+                .padding(Theme.tilePadding + 2)
+                .frame(width: Theme.sidePanelWidth, alignment: .leading)
+        }
+    }
 }
 
 /// Icon-only button with a designed hover state.

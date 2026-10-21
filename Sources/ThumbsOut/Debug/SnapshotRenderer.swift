@@ -14,6 +14,14 @@ enum SnapshotRenderer {
         for scheme in [ColorScheme.light, .dark] {
             let suffix = scheme == .light ? "light" : "dark"
             render(MenuPanel(controller: controller, openSettings: {}, reportProblem: {}).background(.regularMaterial), scheme, directory, "menu-\(suffix)")
+            render(
+                AllAgentsList(controller: controller).padding(Theme.tilePadding + 2).frame(width: Theme.sidePanelWidth),
+                scheme, directory, "menu-all-agents-\(suffix)"
+            )
+            render(
+                BlockersList(blockers: DemoRenderer.sampleBlockers, hasLid: true).padding(Theme.tilePadding + 2).frame(width: Theme.sidePanelWidth),
+                scheme, directory, "menu-other-apps-\(suffix)"
+            )
             render(SettingsView(controller: controller, showWelcome: {}, reportProblem: {}).frame(width: 520, height: 1500), scheme, directory, "settings-\(suffix)")
             for step in OnboardingView.Step.allCases {
                 render(OnboardingView(controller: controller, initialStep: step) {}, scheme, directory, "onboarding-\(step.rawValue)-\(suffix)")

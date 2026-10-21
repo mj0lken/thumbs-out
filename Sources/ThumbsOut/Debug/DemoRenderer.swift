@@ -24,22 +24,24 @@ enum DemoRenderer {
     private static let videoSize = CGSize(width: 1650, height: 1140)
     private static let gifSize = CGSize(width: 720, height: 497)
 
+    /// Other apps keeping the Mac awake, for the tour panels and snapshots.
+    static let sampleBlockers = [
+        SleepBlocker(processName: "Music", reasons: ["com.apple.audio.BuiltInSpeakerDevice"], keepsDisplayOn: false),
+        SleepBlocker(processName: "Zoom", reasons: ["Meeting in progress"], keepsDisplayOn: true),
+    ]
+
     /// `--render-site <dir>`: the panel in each tour state, the app icon and the social preview.
     static func renderSiteAssets(controller: AwakeController) async {
         guard let directory = outputDirectory(flag: "--render-site") else { return }
         await controller.rescanAgents()
 
-        let others = [
-            SleepBlocker(processName: "Music", reasons: ["com.apple.audio.BuiltInSpeakerDevice"], keepsDisplayOn: false),
-            SleepBlocker(processName: "Zoom", reasons: ["Meeting in progress"], keepsDisplayOn: true),
-        ]
         let states: [(String, Int, Double?)] = [("idle", 0, nil), ("working", 1, nil), ("grace", 4, 3.4), ("lid", 3, nil)]
         do {
             for (name, index, graceMinutes) in states {
                 let now = Date()
                 var state = scenes[index].state(now)
                 if let graceMinutes { state.decision = .gracePeriod(until: now.addingTimeInterval(graceMinutes * 60)) }
-                if name != "idle" { state.blockers = others }
+                if name != "idle" { state.blockers = sampleBlockers }
                 controller.applyDemo(state)
                 let panel = MenuPanel(controller: controller, openSettings: {}, reportProblem: {})
                     .background(Color(white: 0.965), in: RoundedRectangle(cornerRadius: 14, style: .continuous))

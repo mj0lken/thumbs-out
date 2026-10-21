@@ -137,6 +137,8 @@ private struct LidClosedSection: View {
     private var isEnabled = AppSettings.defaults.isLidClosedModeEnabled
     @AppStorage(SettingsKey.minimumBatteryPercent)
     private var minimumBatteryPercent = AppSettings.defaults.minimumBatteryPercent
+    @AppStorage(SettingsKey.locksScreenOnLidClose)
+    private var locksScreen = AppSettings.defaults.locksScreenOnLidClose
 
     private var lid: LidSleepController { controller.lid }
 
@@ -146,6 +148,10 @@ private struct LidClosedSection: View {
                 title: "Stay awake with the lid closed", isOn: controller.lidModeSwitch(isEnabled: isEnabled), tint: Theme.lid
             )
             .disabled(lid.isBusy)
+            if ScreenLocker.isAvailable {
+                FormSwitch(title: "Lock the screen when the lid closes", isOn: $locksScreen, tint: Theme.lid)
+                    .disabled(!isEnabled || !lid.isSetUp)
+            }
             Picker("Stop below battery level", selection: $minimumBatteryPercent) {
                 ForEach(AppSettings.minimumBatteryChoices, id: \.self) { Text("\($0)%").tag($0) }
             }
@@ -163,7 +169,7 @@ private struct LidClosedSection: View {
         } header: {
             Text("Lid Closed")
         } footer: {
-            Text("Turns lid sleep off only while thumbs-out keeps your Mac awake. The first time, it asks for your admin password to allow just the pmset disablesleep command. A closed MacBook running agents gets warm, so keep it out of tight bags.")
+            Text("Turns lid sleep off only while thumbs-out keeps your Mac awake. The first time, it asks for your admin password to allow just the pmset disablesleep command. With the screen locked, agents keep running; open the lid and log in as usual. It doesn't lock while another display is connected. A closed MacBook running agents gets warm, so keep it out of tight bags.")
                 .foregroundStyle(.secondary)
         }
         .task { await lid.refreshSetupStatus() }

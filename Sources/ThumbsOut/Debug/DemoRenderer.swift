@@ -41,7 +41,7 @@ enum DemoRenderer {
                 if let graceMinutes { state.decision = .gracePeriod(until: now.addingTimeInterval(graceMinutes * 60)) }
                 if name != "idle" { state.blockers = others }
                 controller.applyDemo(state)
-                let panel = MenuPanel(controller: controller) {}
+                let panel = MenuPanel(controller: controller, openSettings: {}, reportProblem: {})
                     .background(Color(white: 0.965), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .padding(1)

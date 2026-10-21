@@ -29,7 +29,7 @@ struct DemoCanvas: View {
                 .frame(width: 520, alignment: .leading)
                 .padding(.leading, 64)
                 .padding(.top, 250)
-            MenuPanel(controller: controller) {}
+            MenuPanel(controller: controller, openSettings: {}, reportProblem: {})
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.black.opacity(0.08)))
                 .shadow(color: .black.opacity(0.18), radius: 24, y: 12)
@@ -115,7 +115,7 @@ struct SocialPreview: View {
             .padding(.leading, 72)
             .padding(.vertical, 64)
 
-            MenuPanel(controller: controller) {}
+            MenuPanel(controller: controller, openSettings: {}, reportProblem: {})
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .shadow(color: .black.opacity(0.2), radius: 30, y: 16)
                 .scaleEffect(0.86, anchor: .topLeading)

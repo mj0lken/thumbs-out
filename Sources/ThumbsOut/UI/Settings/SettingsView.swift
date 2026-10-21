@@ -5,6 +5,7 @@ import ThumbsOutCore
 struct SettingsView: View {
     let controller: AwakeController
     let showWelcome: () -> Void
+    let reportProblem: () -> Void
 
     @AppStorage(SettingsKey.isAutoEnabled) private var isAutoEnabled = AppSettings.defaults.isAutoEnabled
     @AppStorage(SettingsKey.gracePeriodMinutes) private var gracePeriodMinutes = AppSettings.defaults.gracePeriodMinutes
@@ -24,7 +25,7 @@ struct SettingsView: View {
             }
             StatsSection(controller: controller)
             detectionSection
-            GeneralSection(showWelcome: showWelcome)
+            GeneralSection(showWelcome: showWelcome, reportProblem: reportProblem)
         }
         .formStyle(.grouped)
         .tint(Theme.working)
@@ -193,6 +194,7 @@ private struct StatsSection: View {
 
 private struct GeneralSection: View {
     let showWelcome: () -> Void
+    let reportProblem: () -> Void
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var launchAtLoginError: String?
 
@@ -212,6 +214,7 @@ private struct GeneralSection: View {
                     .foregroundStyle(.secondary).font(.callout)
             }
             Button("Show Welcome Again…", action: showWelcome)
+            Button("Report a Bug…", action: reportProblem)
         }
     }
 }

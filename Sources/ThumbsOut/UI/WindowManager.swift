@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Opens the onboarding and settings windows. A menu bar app has no Dock icon or main window,
+/// Opens the onboarding, settings and report windows. A menu bar app has no Dock icon or main window,
 /// so these are plain AppKit windows hosting SwiftUI, brought to the front on demand.
 @MainActor
 final class WindowManager: NSObject, NSWindowDelegate {
@@ -10,6 +10,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     private let controller: AwakeController
     private var onboardingWindow: NSWindow?
     private var settingsWindow: NSWindow?
+    private var reportWindow: NSWindow?
 
     init(controller: AwakeController) {
         self.controller = controller
@@ -41,12 +42,30 @@ final class WindowManager: NSObject, NSWindowDelegate {
             present(settingsWindow)
             return
         }
-        let view = SettingsView(controller: controller) { [weak self] in self?.showOnboarding() }
+        let view = SettingsView(
+            controller: controller,
+            showWelcome: { [weak self] in self?.showOnboarding() },
+            reportProblem: { [weak self] in self?.showReportProblem() }
+        )
         let window = makeWindow(content: view, title: "thumbs-out Settings")
         window.styleMask = [.titled, .closable, .resizable, .miniaturizable]
         window.setContentSize(NSSize(width: 520, height: 720))
         window.setFrameAutosaveName("SettingsWindow")
         settingsWindow = window
+        present(window)
+    }
+
+    /// The view refreshes its diagnostics whenever the window comes to the front, and keeps what
+    /// the user typed.
+    func showReportProblem() {
+        if let reportWindow {
+            present(reportWindow)
+            return
+        }
+        let view = ReportProblemView(controller: controller) { [weak self] in self?.reportWindow?.close() }
+        let window = makeWindow(content: view, title: "Report a Bug")
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        reportWindow = window
         present(window)
     }
 
@@ -58,6 +77,8 @@ final class WindowManager: NSObject, NSWindowDelegate {
             onboardingWindow = nil
         } else if window === settingsWindow {
             settingsWindow = nil
+        } else if window === reportWindow {
+            reportWindow = nil
         }
     }
 

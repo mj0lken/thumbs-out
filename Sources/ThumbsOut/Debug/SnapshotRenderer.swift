@@ -9,18 +9,29 @@ enum SnapshotRenderer {
     static func runIfRequested(controller: AwakeController) async {
         guard let directory = DemoRenderer.outputDirectory(flag: "--render-snapshots") else { return }
         await controller.loadSnapshotState()
+        let diagnostics = await DiagnosticsCollector.collect(from: controller)
 
         for scheme in [ColorScheme.light, .dark] {
             let suffix = scheme == .light ? "light" : "dark"
-            render(MenuPanel(controller: controller) {}.background(.regularMaterial), scheme, directory, "menu-\(suffix)")
-            render(SettingsView(controller: controller) {}.frame(width: 520, height: 1500), scheme, directory, "settings-\(suffix)")
+            render(MenuPanel(controller: controller, openSettings: {}, reportProblem: {}).background(.regularMaterial), scheme, directory, "menu-\(suffix)")
+            render(SettingsView(controller: controller, showWelcome: {}, reportProblem: {}).frame(width: 520, height: 1500), scheme, directory, "settings-\(suffix)")
             for step in OnboardingView.Step.allCases {
                 render(OnboardingView(controller: controller, initialStep: step) {}, scheme, directory, "onboarding-\(step.rawValue)-\(suffix)")
             }
+            render(
+                ReportProblemView(controller: controller, diagnostics: diagnostics, kind: .didNotKeepAwake) {},
+                scheme, directory, "report-\(suffix)"
+            )
+            // Everything the scroll view holds, to review what a report contains.
+            render(
+                DiagnosticsPreview(report: diagnostics.report.redacted(by: DiagnosticsCollector.redactor))
+                    .padding(Theme.tilePadding).frame(width: 540),
+                scheme, directory, "report-details-\(suffix)"
+            )
         }
         controller.simulateDesktopMac()
-        render(MenuPanel(controller: controller) {}.background(.regularMaterial), .light, directory, "menu-desktop")
-        render(SettingsView(controller: controller) {}.frame(width: 520, height: 1500), .light, directory, "settings-desktop")
+        render(MenuPanel(controller: controller, openSettings: {}, reportProblem: {}).background(.regularMaterial), .light, directory, "menu-desktop")
+        render(SettingsView(controller: controller, showWelcome: {}, reportProblem: {}).frame(width: 520, height: 1500), .light, directory, "settings-desktop")
         finish(status: 0)
     }
 

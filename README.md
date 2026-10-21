@@ -99,7 +99,7 @@ by bundle ID) and command-line tools (`claude`, `codex`, `agy` in `~/.local/bin`
 - **Stay awake with lid closed**: lid-closed mode switch and what closing the lid would do right now
 - **Other apps keeping it awake**: everything else holding a keep-awake lock (same data as
   `pmset -g assertions`), collapsed by default
-- **Keep awake manually…**: 15 minutes, 1, 2 or 5 hours, or until you stop it; Settings and Quit
+- **Keep awake manually…**: 15 minutes, 1, 2 or 5 hours, or until you stop it; [Report a bug](#report-a-bug), Settings and Quit
 
 ## Lid-closed mode
 
@@ -179,6 +179,31 @@ Developed and tested on an M4 Pro MacBook Pro running macOS 26.
   local process to detect.
 - Without lid-closed mode, closing the lid sleeps the Mac unless it's in Apple's clamshell mode
   (power adapter plus external display).
+
+## Report a bug
+
+Click **Report a Bug…** in the menu panel (or in Settings › General), pick what went wrong (Mac
+didn't stay awake, won't sleep, agent not detected, lid-closed mode, quit unexpectedly, something
+else), add a line if you like, and click **Open GitHub Issue…**. Your browser opens a new
+[issue](https://github.com/mj0lken/thumbs-out/issues) with the title, your answer and the details
+below already filled in; check it and click **Create**. Nothing is sent before that, and the window
+shows everything it adds first:
+
+- **thumbs-out**: version, build, where it runs from, how long it has been running, and how many
+  crash reports it left (not their contents; **Show in Finder** if you want to attach them)
+- **This Mac**: macOS version, model identifier (`Mac16,7`), chip, lid, power source and battery
+  level, and whether your account is an administrator (lid-closed setup needs one)
+- **Setup and permissions**: the lid-closed sudoers rule, the `SleepDisabled` switch and who set
+  it, what closing the lid would do, launch at login, and the last lid-closed error
+- **Right now**: why the Mac is or isn't kept awake, the *programs* agents are running (`swift`,
+  `npm`, never their arguments), which agents are open, and the names of other apps keeping it awake
+- **Settings**, **agents found** and where they're installed (only for standard install folders),
+  and thumbs-out's own log from this run
+
+Never included: other processes, command arguments, file contents, personal folder names, the
+serial number, host name or network details. Your home folder shows as `~` and your name as
+`<user>`; what you type goes in as written. A report too long for a link goes through the clipboard
+instead.
 
 ## Project layout
 

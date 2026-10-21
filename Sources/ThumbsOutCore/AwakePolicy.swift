@@ -32,9 +32,9 @@ public enum AwakeDecision: Sendable, Equatable {
 
 public enum AwakePolicy {
     /// - Parameters:
-    ///   - activeAgents: agents running a command right now.
-    ///   - lastActivity: when an agent was last seen running a command.
-    ///   - gracePeriod: how long to stay awake after the last command, so the agent can keep thinking.
+    ///   - activeAgents: agents working right now: running a command, or busy since the last tick.
+    ///   - lastActivity: when an agent was last seen working.
+    ///   - gracePeriod: how long to stay awake after that, so the agent can keep thinking.
     ///   - isAutoEnabled: whether agent detection is switched on at all.
     public static func decide(
         now: Date,

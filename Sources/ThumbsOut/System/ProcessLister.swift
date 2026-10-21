@@ -26,21 +26,43 @@ enum ProcessLister {
     }()
 
     static func snapshot() -> [ProcessRecord] {
-        let uid = getuid()
         // One buffer for the whole scan: KERN_ARGMAX is 1 MB, too big to allocate per process.
-        var argumentBuffer = [UInt8](repeating: 0, count: argumentBufferSize)
-        return allPids().compactMap { pid in
-            guard let info = bsdInfo(pid), info.pbi_status != zombieStatus else { return nil }
-            let isOwn = info.pbi_uid == uid
-            return ProcessRecord(
-                pid: pid,
-                ppid: Int32(info.pbi_ppid),
-                path: isOwn ? executablePath(pid) : "",
-                arguments: isOwn ? arguments(pid, buffer: &argumentBuffer) : [],
-                cpuTime: isOwn ? cpuTime(pid) : nil
-            )
+        var argumentBuffer = makeArgumentBuffer()
+        return allPids().compactMap { record($0, buffer: &argumentBuffer, includeCPUTime: true) }
+    }
+
+    static func makeArgumentBuffer() -> [UInt8] {
+        [UInt8](repeating: 0, count: argumentBufferSize)
+    }
+
+    /// One process, or `nil` once it has exited. Arguments are read into `buffer`.
+    static func record(_ pid: pid_t, buffer: inout [UInt8], includeCPUTime: Bool = false) -> ProcessRecord? {
+        guard let info = bsdInfo(pid), info.pbi_status != zombieStatus else { return nil }
+        let isOwn = info.pbi_uid == getuid()
+        return ProcessRecord(
+            pid: pid,
+            ppid: Int32(info.pbi_ppid),
+            path: isOwn ? executablePath(pid) : "",
+            arguments: isOwn ? arguments(pid, buffer: &buffer) : [],
+            cpuTime: isOwn && includeCPUTime ? cpuTime(pid) : nil
+        )
+    }
+
+    static func childPIDs(of pid: pid_t) -> [pid_t] {
+        var capacity = 64
+        while true {
+            var pids = [pid_t](repeating: 0, count: capacity)
+            let count = pids.withUnsafeMutableBytes { buffer in
+                proc_listchildpids(pid, buffer.baseAddress, Int32(buffer.count))
+            }
+            guard count > 0 else { return [] }
+            // A full buffer may have been cut short; ask again with room to spare.
+            if count < capacity || capacity >= maxChildren { return Array(pids.prefix(Int(count))) }
+            capacity *= 4
         }
     }
+
+    private static let maxChildren = 4096
 
     private static func allPids() -> [pid_t] {
         let estimate = proc_listallpids(nil, 0)

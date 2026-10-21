@@ -18,6 +18,8 @@ final class LidSleepController {
     private(set) var isSetUp = false
     private(set) var isBusy = false
     private(set) var lastError: String?
+    /// Why sudo rejected the setup check, for problem reports.
+    private(set) var setupCheckError: String?
 
     @ObservationIgnored private var watchdog: Process?
     @ObservationIgnored private var wantsSleepDisabled = false
@@ -54,6 +56,7 @@ final class LidSleepController {
             ["-n", "-l", LidSleepHelper.pmsetPath] + LidSleepHelper.pmsetArguments(disableSleep: true)
         )
         isSetUp = check.succeeded
+        setupCheckError = check.succeeded ? nil : check.errorOutput.split(whereSeparator: \.isNewline).first.map(String.init)
     }
 
     /// Asks for an admin password once and installs the narrowly scoped sudoers rule.
@@ -92,6 +95,7 @@ final class LidSleepController {
         if result.succeeded {
             lastError = nil
         } else if !result.errorOutput.contains("-128") { // -128: the user pressed Cancel.
+            Self.log.error("Couldn't \(action, privacy: .public): \(result.errorOutput, privacy: .public)")
             lastError = "Couldn't \(action): \(result.errorOutput)"
         }
         await refreshSetupStatus()

@@ -111,6 +111,32 @@ struct BlockersTile: View {
     }
 }
 
+/// The one way into a problem report from the menu; the details come in their own window.
+struct ReportBugRow: View {
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "ladybug")
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 18)
+                Text("Report a Bug…").font(.system(size: 12, weight: .medium))
+                Spacer()
+            }
+            .foregroundStyle(isHovering ? .primary : .secondary)
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(Color.primary.opacity(isHovering ? 0.07 : 0), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+    }
+}
+
 /// Manual sessions, settings and quit.
 struct PanelFooter: View {
     let controller: AwakeController

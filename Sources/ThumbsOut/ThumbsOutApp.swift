@@ -7,7 +7,11 @@ struct ThumbsOutApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuPanel(controller: appDelegate.controller) { appDelegate.windows.showSettings() }
+            MenuPanel(
+                controller: appDelegate.controller,
+                openSettings: { appDelegate.windows.showSettings() },
+                reportProblem: { appDelegate.windows.showReportProblem() }
+            )
         } label: {
             Image(nsImage: MenuBarGlyph.image(
                 for: appDelegate.controller.decision,

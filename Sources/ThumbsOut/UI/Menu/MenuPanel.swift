@@ -5,6 +5,7 @@ import ThumbsOutCore
 struct MenuPanel: View {
     let controller: AwakeController
     let openSettings: () -> Void
+    let reportProblem: () -> Void
 
     @AppStorage(SettingsKey.isAutoEnabled) private var isAutoEnabled = AppSettings.defaults.isAutoEnabled
     @AppStorage(SettingsKey.gracePeriodMinutes) private var gracePeriodMinutes = AppSettings.defaults.gracePeriodMinutes
@@ -28,6 +29,7 @@ struct MenuPanel: View {
                 LidTile(controller: controller)
             }
             BlockersTile(blockers: controller.power.blockers, hasLid: controller.power.hasLid)
+            ReportBugRow(action: reportProblem)
             PanelFooter(controller: controller, openSettings: openSettings)
         }
         .padding(Theme.panelPadding)

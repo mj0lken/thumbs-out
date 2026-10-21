@@ -116,6 +116,37 @@ struct TranscriptScannerTests {
         #expect(scan(full.scanner, home, at: later.addingTimeInterval(5)).listed.isEmpty)
     }
 
+    @Test("a transcript dated in the future doesn't keep counting, and doesn't hide real writes")
+    func futureDated() {
+        var home = FakeHome(files: [
+            "\(claudeProject)/s0.jsonl": start.addingTimeInterval(-600),
+            "\(claudeProject)/s1.jsonl": start.addingTimeInterval(86_400),
+        ])
+        let first = scan(TranscriptScanner(), home, at: start)
+        #expect(first.writers.isEmpty)
+        let second = scan(first.scanner, home, at: start.addingTimeInterval(5))
+        #expect(second.writers.isEmpty)
+
+        home.files["\(claudeProject)/s2.jsonl"] = start.addingTimeInterval(8)
+        #expect(scan(second.scanner, home, at: start.addingTimeInterval(10)).writers == [.claudeCode])
+    }
+
+    @Test("a write made while the folder was being listed counts once")
+    func writeDuringListing() {
+        let home = FakeHome(files: ["\(claudeProject)/s1.jsonl": start.addingTimeInterval(0.5)])
+        let first = scan(TranscriptScanner(), home, at: start)
+        #expect(first.writers == [.claudeCode])
+        #expect(scan(first.scanner, home, at: start.addingTimeInterval(5)).writers.isEmpty)
+    }
+
+    @Test("writes from just before the Mac slept don't count when it wakes")
+    func staleAfterSleep() {
+        var home = FakeHome(files: ["\(claudeProject)/s1.jsonl": start.addingTimeInterval(-60)])
+        let first = scan(TranscriptScanner(), home, at: start)
+        home.files["\(claudeProject)/s1.jsonl"] = start.addingTimeInterval(2)
+        #expect(scan(first.scanner, home, at: start.addingTimeInterval(1_800)).writers.isEmpty)
+    }
+
     @Test("each agent's transcripts are found where it writes them", arguments: [
         (".claude/projects/-Users-me-Projects-app/0b1c.jsonl", Agent.claudeCode),
         (".claude/projects/-Users-me-Projects-app/0b1c/subagents/agent-a72e.jsonl", Agent.claudeCode),

@@ -78,16 +78,18 @@ Agents also work between those looks, so two more signals count:
 - **Short commands.** Most commands an agent runs take milliseconds and finish before the next look.
   thumbs-out watches the processes commands start under with kqueue (`EVFILT_PROC`) and checks each
   new child the moment it starts, by the same rules: a quick `cat` counts, an MCP server starting
-  doesn't, and an idle session starts nothing.
-- **Session transcripts.** Reading, editing and thinking run no process at all, but the agent writes
-  them to its session transcript: Claude Code to `~/.claude/projects/…/*.jsonl` (subagents to their
-  own file next to it), Codex to `~/.codex/sessions/…/rollout-*.jsonl`, Gemini CLI to
-  `~/.gemini/tmp/…/chats/session-*.json`. An agent whose transcript changed since the last look,
-  while its process is running, counts as working. Only file names and modification times are read,
-  never what's in the files. Each look lists just the folders with a transcript written in the last
-  hour, and once a minute all of them, to notice a session picked up again after a long pause.
+  doesn't, and an idle session starts nothing. A command that the same process repeats on a timer
+  (an editor extension polling, a status line refreshing) counts once, not every time.
+- **Session transcripts.** Reading and editing files run no process at all, but the agent records
+  every message and tool call in its session transcript: Claude Code in
+  `~/.claude/projects/…/*.jsonl` (subagents in their own file next to it), Codex in
+  `~/.codex/sessions/…/rollout-*.jsonl`, Gemini CLI in `~/.gemini/tmp/…/chats/session-*.json`. An
+  agent whose transcript changed since the last look, while its process is running, counts as
+  working. Only file names and modification times are read, never what's in the files. Each look
+  lists just the folders with a transcript written in the last hour, and once a minute all of them,
+  to notice a session picked up again after a long pause.
 
-While an agent is working, it holds an IOKit `PreventUserIdleSystemSleep` assertion (or
+While an agent is working, thumbs-out holds an IOKit `PreventUserIdleSystemSleep` assertion (or
 `PreventUserIdleDisplaySleep` if you choose to keep the display on). That's the same mechanism
 Amphetamine and `caffeinate` use. After the last sign of work it waits for a **grace period** (5
 minutes by default) so the Mac stays awake while the agent thinks between messages.

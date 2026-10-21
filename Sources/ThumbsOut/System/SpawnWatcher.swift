@@ -1,5 +1,5 @@
 import Darwin
-import Dispatch
+import Foundation
 import os
 import ThumbsOutCore
 
@@ -22,6 +22,8 @@ final class SpawnWatcher: @unchecked Sendable {
     private static let events = UInt32(NOTE_FORK) | UInt32(NOTE_EXEC) | UInt32(NOTE_EXIT)
     /// Only the latest command per agent is shown, so a few are plenty between two ticks.
     private static let maxPendingCommands = 64
+    /// Events handled per wake-up, so a burst of forks can't hold up `takeCommands` for long.
+    private static let eventsPerDrain = 32
 
     private let queue = DispatchQueue(label: "com.mj0lken.thumbs-out.spawn", qos: .utility)
     private let kq: Int32
@@ -31,7 +33,7 @@ final class SpawnWatcher: @unchecked Sendable {
     private var adoptedSinceUpdate: Set<pid_t> = []
     private var detector = ActivityDetector()
     private var agents: Set<Agent> = []
-    private var commands: [DetectedCommand] = []
+    private var commands: [SpawnedCommand] = []
     private lazy var argumentBuffer = ProcessLister.makeArgumentBuffer()
 
     init() {
@@ -52,13 +54,17 @@ final class SpawnWatcher: @unchecked Sendable {
     }
 
     /// Watches these processes from now on, plus children still waiting to exec.
-    func update(targets: [SpawnWatchTarget], detector: ActivityDetector, watching agents: Set<Agent>) {
+    /// - Parameter snapshotPIDs: every process in the snapshot the targets come from.
+    func update(
+        targets: [SpawnWatchTarget], snapshotPIDs: Set<pid_t>, detector: ActivityDetector, watching agents: Set<Agent>
+    ) {
         queue.async { [self] in
             self.detector = detector
             self.agents = agents
             let wanted = Dictionary(targets.map { ($0.process.pid, $0) }, uniquingKeysWith: { first, _ in first })
             for (pid, entry) in entries where wanted[pid] == nil {
                 guard case .spawner(let target, _) = entry else { continue }
+                // Watched since the snapshot was taken, so it couldn't be in it.
                 let isNewerThanSnapshot = adoptedSinceUpdate.contains(pid) && agents.contains(target.agent)
                 if !isNewerThanSnapshot || targets.isEmpty { stopWatching(pid) }
             }
@@ -67,14 +73,17 @@ final class SpawnWatcher: @unchecked Sendable {
                 if case .spawner(_, let children)? = entries[pid] {
                     entries[pid] = .spawner(target, children: children)
                 } else if register(pid) {
-                    entries[pid] = .spawner(target, children: Set(ProcessLister.childPIDs(of: pid)))
+                    // The snapshot's children were judged by the walk; any newer one is new.
+                    let children = ProcessLister.childPIDs(of: pid)
+                    entries[pid] = .spawner(target, children: Set(children).intersection(snapshotPIDs))
+                    children.filter { !snapshotPIDs.contains($0) }.forEach { adopt($0, startedBy: target) }
                 }
             }
         }
     }
 
-    /// Commands that started since the last call, oldest first.
-    func takeCommands() -> [DetectedCommand] {
+    /// Commands that started since the last call.
+    func takeCommands() -> [SpawnedCommand] {
         queue.sync {
             defer { commands = [] }
             return commands
@@ -83,61 +92,69 @@ final class SpawnWatcher: @unchecked Sendable {
 
     // MARK: Events
 
+    /// Handles one batch; the source fires again while more events are waiting.
     private func drainEvents() {
         // A type annotation, since `[kevent](…)` would mean an array of the `kevent` function.
-        var events: [kevent] = Array(repeating: kevent(), count: 32)
+        var events: [kevent] = Array(repeating: kevent(), count: Self.eventsPerDrain)
         var timeout = timespec(tv_sec: 0, tv_nsec: 0)
-        while true {
-            let count = kevent(kq, nil, 0, &events, Int32(events.count), &timeout)
-            guard count > 0 else { return }
-            events.prefix(Int(count)).forEach(handle)
-        }
+        let count = kevent(kq, nil, 0, &events, Int32(events.count), &timeout)
+        events.prefix(Int(max(count, 0))).forEach(handle)
     }
 
+    /// `EV_CLEAR` folds everything since the last look into one event, so forks come first, then
+    /// an exec, then the exit.
     private func handle(_ event: kevent) {
         let pid = pid_t(event.ident)
-        guard let entry = entries[pid] else { return }
-        switch entry {
-        case .spawner(let target, let children):
-            if event.fflags & UInt32(NOTE_EXEC) != 0 {
+        if event.fflags & UInt32(NOTE_FORK) != 0, case .spawner(let target, let children)? = entries[pid] {
+            let current = Set(ProcessLister.childPIDs(of: pid))
+            entries[pid] = .spawner(target, children: current)
+            current.subtracting(children).sorted().forEach { adopt($0, startedBy: target) }
+        }
+        if event.fflags & UInt32(NOTE_EXEC) != 0 {
+            switch entries[pid] {
+            case .spawner(let target, let children)?:
                 // Now running another program (`sandbox-exec` becoming the shell it sandboxes).
-                adopt(pid, startedBy: SpawnWatchTarget(process: target.process, agent: target.agent, role: .process))
-            } else if event.fflags & UInt32(NOTE_FORK) != 0 {
-                let current = Set(ProcessLister.childPIDs(of: pid))
-                entries[pid] = .spawner(target, children: current)
-                current.subtracting(children).sorted().forEach { adopt($0, startedBy: target) }
+                let before = SpawnWatchTarget(process: target.process, agent: target.agent, role: .process)
+                adopt(pid, startedBy: before, knownChildren: children)
+            case .awaitingExec(let parent)?:
+                adopt(pid, startedBy: parent)
+            case nil:
+                break
             }
-        case .awaitingExec(let parent):
-            if event.fflags & UInt32(NOTE_EXEC) != 0 { adopt(pid, startedBy: parent) }
         }
         if event.fflags & UInt32(NOTE_EXIT) != 0 { stopWatching(pid) }
     }
 
     /// Decides what a new child of `parent` is, and watches it if commands may start under it.
-    private func adopt(_ pid: pid_t, startedBy parent: SpawnWatchTarget, isRetry: Bool = false) {
+    /// - Parameter knownChildren: its children already looked at; none for a new process.
+    private func adopt(
+        _ pid: pid_t, startedBy parent: SpawnWatchTarget, knownChildren: Set<pid_t> = [], isRetry: Bool = false
+    ) {
         guard let child = ProcessLister.record(pid, buffer: &argumentBuffer) else { return stopWatching(pid) }
+        var seen = knownChildren
         switch detector.classify(child, startedBy: parent, watching: agents) {
         case .command(let command):
             Self.log.debug("Short command for \(command.agent.id, privacy: .public): \(command.summary)")
-            commands = Array((commands + [command]).suffix(Self.maxPendingCommands))
-            stopWatching(pid) // Whatever it starts belongs to the command.
+            let spawned = SpawnedCommand(command: command, parentPID: parent.process.pid, date: Date())
+            commands = Array((commands + [spawned]).suffix(Self.maxPendingCommands))
+            return stopWatching(pid) // Whatever it starts belongs to the command.
         case .ignored:
-            stopWatching(pid)
+            return stopWatching(pid)
         case .watch(let target):
             guard register(pid) else { return }
-            // It's new, so any children it already has are new too.
             let children = ProcessLister.childPIDs(of: pid)
             entries[pid] = .spawner(target, children: Set(children))
             adoptedSinceUpdate.insert(pid)
-            children.forEach { adopt($0, startedBy: target) }
+            children.filter { !seen.contains($0) }.forEach { adopt($0, startedBy: target) }
+            seen.formUnion(children)
         case .awaitingExec:
             guard register(pid) else { return }
             entries[pid] = .awaitingExec(parent: parent)
-            // It may have exec'd before the watch was in place, so the event never comes.
-            if !isRetry, let now = ProcessLister.record(pid, buffer: &argumentBuffer),
-               now.path != child.path || now.arguments != child.arguments {
-                adopt(pid, startedBy: parent, isRetry: true)
-            }
+        }
+        // Read mid-exec, or exec'd before the watch was in place: then no event is coming.
+        if !isRetry, let now = ProcessLister.record(pid, buffer: &argumentBuffer),
+           now.path != child.path || now.arguments != child.arguments {
+            adopt(pid, startedBy: parent, knownChildren: seen, isRetry: true)
         }
     }
 

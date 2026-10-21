@@ -68,15 +68,24 @@ public struct TranscriptScanner: Sendable, Equatable {
     /// How long a folder keeps being listed every tick after a transcript in it was written.
     public static let hotWindow: TimeInterval = 60 * 60
     public static let fullScanInterval: TimeInterval = 60
+    /// Older writes don't count, such as those from just before the Mac slept.
+    static let maxWriteAge: TimeInterval = 2 * fullScanInterval
+    /// Files dated further ahead than this are ignored rather than counted on every tick.
+    static let clockSlack: TimeInterval = 60
 
-    struct Folder: Sendable, Equatable {
+    struct Location: Sendable, Equatable {
         let agent: Agent
         let file: String
     }
 
-    /// Folders listed every tick, with whose transcripts they hold.
-    private(set) var hotFolders: [String: Folder] = [:]
-    private var lastScan: Date?
+    struct HotFolder: Sendable, Equatable {
+        let location: Location
+        /// The newest transcript seen in it, so only a later one counts as a new write.
+        let newest: Date
+    }
+
+    /// Folders listed every tick.
+    private(set) var hotFolders: [String: HotFolder] = [:]
     private var lastFullScan: Date?
 
     public init() {}
@@ -88,7 +97,7 @@ public struct TranscriptScanner: Sendable, Equatable {
     ) -> (scanner: TranscriptScanner, writers: Set<Agent>) {
         let isFullScan = lastFullScan.map { now.timeIntervalSince($0) >= Self.fullScanInterval } ?? true
         // On launch, writes from the last minute count, as they would for a folder found by a full scan.
-        let launchCutoff = now.addingTimeInterval(-Self.fullScanInterval)
+        let lastFullLook = lastFullScan ?? now.addingTimeInterval(-Self.fullScanInterval)
         var listings: [String: [FileEntry]] = [:]
         func cachedList(_ path: String) -> [FileEntry] {
             if let listing = listings[path] { return listing }
@@ -97,37 +106,41 @@ public struct TranscriptScanner: Sendable, Equatable {
             return listing
         }
 
-        let folders = isFullScan
-            ? allFolders(of: agents, home: home, list: cachedList)
-            : hotFolders.filter { agents.contains($0.value.agent) }
+        let locations = isFullScan
+            ? allLocations(of: agents, home: home, list: cachedList)
+            : hotFolders.filter { agents.contains($0.value.location.agent) }.mapValues(\.location)
         var next = self
         next.hotFolders = [:]
         var writers: Set<Agent> = []
-        for (path, folder) in folders {
+        for (path, location) in locations {
             guard let newest = cachedList(path)
-                .filter({ !$0.isDirectory && TranscriptPattern.matches($0.name, glob: folder.file) })
+                .filter({
+                    !$0.isDirectory && TranscriptPattern.matches($0.name, glob: location.file)
+                        && $0.modified.timeIntervalSince(now) <= Self.clockSlack
+                })
                 .map(\.modified).max()
             else { continue }
-            if now.timeIntervalSince(newest) < Self.hotWindow { next.hotFolders[path] = folder }
-            let lastLooked = (hotFolders[path] != nil ? lastScan : lastFullScan) ?? launchCutoff
-            if newest > lastLooked { writers.insert(folder.agent) }
+            let age = now.timeIntervalSince(newest)
+            if age < Self.hotWindow { next.hotFolders[path] = HotFolder(location: location, newest: newest) }
+            if newest > hotFolders[path]?.newest ?? lastFullLook, age <= Self.maxWriteAge {
+                writers.insert(location.agent)
+            }
         }
-        next.lastScan = now
         if isFullScan { next.lastFullScan = now }
         return (next, writers)
     }
 
-    private func allFolders(
+    private func allLocations(
         of agents: Set<Agent>, home: String, list: (String) -> [FileEntry]
-    ) -> [String: Folder] {
-        var folders: [String: Folder] = [:]
+    ) -> [String: Location] {
+        var locations: [String: Location] = [:]
         for agent in agents {
             for pattern in agent.transcripts {
                 for path in pattern.folders(under: home, list: list) {
-                    folders[path] = Folder(agent: agent, file: pattern.file)
+                    locations[path] = Location(agent: agent, file: pattern.file)
                 }
             }
         }
-        return folders
+        return locations
     }
 }

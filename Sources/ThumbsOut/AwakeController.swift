@@ -22,6 +22,7 @@ final class AwakeController {
     @ObservationIgnored private let assertion = SleepAssertion()
     @ObservationIgnored private let spawnWatcher = SpawnWatcher()
     @ObservationIgnored private var transcriptScanner = TranscriptScanner()
+    @ObservationIgnored private var shortCommandFilter = ShortCommandFilter()
     @ObservationIgnored private var lastActivity: Date?
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private var settingsObserver: NSObjectProtocol?
@@ -178,7 +179,7 @@ final class AwakeController {
             let uptime = ProcessInfo.processInfo.systemUptime
             spawnWatcher.update(
                 targets: shouldDetect ? detector.spawnWatchTargets(in: snapshot, watching: agents) : [],
-                detector: detector, watching: agents
+                snapshotPIDs: Set(snapshot.map(\.pid)), detector: detector, watching: agents
             )
             let transcripts = shouldDetect
                 ? transcriptScanner.scanning(agents, home: TranscriptFolders.home, now: Date(), list: TranscriptFolders.list)
@@ -205,10 +206,17 @@ final class AwakeController {
             Self.log.debug("Transcript writes by \(writers, privacy: .public)")
         }
         // Taken only once the scan is current, so a superseded one can't drop them.
-        let shortCommands = spawnWatcher.takeCommands().filter { agents.contains($0.agent) }
+        let short = shortCommandFilter.filtering(
+            spawnWatcher.takeCommands().filter { agents.contains($0.command.agent) },
+            now: Date(),
+            // Longer than the grace period, so a command repeated on a timer can't chain them.
+            repeatWindow: TimeInterval(settings.gracePeriodMinutes * 60) + 60,
+            maxAge: TimeInterval(settings.pollIntervalSeconds * 2 + 5)
+        )
+        shortCommandFilter = short.filter
         commands = shouldDetect
             ? ActivityDetector.addingRecentWork(
-                to: scan.commands, shortCommands: shortCommands,
+                to: scan.commands, shortCommands: short.commands,
                 transcriptWriters: scan.transcriptWriters, agentPIDs: scan.agentPIDs
             )
             : []

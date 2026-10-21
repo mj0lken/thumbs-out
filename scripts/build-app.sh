@@ -17,6 +17,15 @@ cp "$BIN_DIR/ThumbsOut" "$APP/Contents/MacOS/ThumbsOut"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
+# The version comes from the release tag, not a commit: VERSION when releasing, otherwise the latest
+# tag, so a local build says which release it's built on. The build number only ever goes up.
+VERSION="${VERSION:-$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null | sed 's/^v//' || true)}"
+BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
+if [[ -n "$VERSION" ]]; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
+fi
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
+
 # Ad-hoc signature: enough to run locally and to register as a login item.
 codesign --force --sign - "$APP"
 

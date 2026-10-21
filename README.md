@@ -178,8 +178,10 @@ swift build && .build/debug/ThumbsOut --render-snapshots /tmp/snaps   # PNGs of 
 
 Cutting a release (maintainers): `scripts/release.sh 1.2.0 --dry-run` runs the tests, builds and
 zips the app and writes the release notes without publishing anything. Without `--dry-run` it also
-bumps the version, tags and publishes the GitHub release, checks the uploaded zip and updates the
-Homebrew cask in `../homebrew-tap` (or `TAP_DIR`).
+publishes the GitHub release (as a draft first, made public once the uploaded zip checks out) and
+updates the Homebrew cask in `../homebrew-tap` (or `TAP_DIR`). It commits nothing: `main` only
+changes through pull requests, and the version comes from the release tag, which `build-app.sh`
+writes into the app (local builds get the latest tag).
 
 For **Launch at login** to work reliably, install the app to `/Applications` first. macOS may ask
 you to approve it under System Settings › General › Login Items.

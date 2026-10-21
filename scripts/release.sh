@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Cuts a release in one go: bumps the version, runs the tests, builds and zips the app, publishes the
-# GitHub release, checks the uploaded zip, and updates the Homebrew cask.
+# Cuts a release in one go: runs the tests, builds and zips the app, publishes the GitHub release,
+# checks the uploaded zip, and updates the Homebrew cask.
 #
-#   scripts/release.sh 1.2.0                     # release
+#   scripts/release.sh 1.2.0                     # release main as it is on GitHub
 #   scripts/release.sh 1.2.0 --dry-run           # everything local (tests, build, zip, notes, cask), nothing published
 #   scripts/release.sh 1.2.0 --notes-file x.md   # your own release notes instead of the generated ones
+#
+# Nothing is committed: main only changes through pull requests. The version comes from the tag, which
+# GitHub creates when the release is published, and build-app.sh writes it into the app.
 #
 # Order matters: everything that can fail locally (tests, build, notes, the cask edit and its style
 # check) runs before anything is published. The release is created as a draft, its zip downloaded and
@@ -34,7 +37,6 @@ done
 cd "$(dirname "$0")/.."
 
 REPO="mj0lken/thumbs-out"
-PLIST="Resources/Info.plist"
 TAP_DIR="${TAP_DIR:-$(cd .. && pwd)/homebrew-tap}"
 CASK="$TAP_DIR/Casks/thumbs-out.rb"
 
@@ -54,8 +56,6 @@ WORK=$(mktemp -d)
 DONE=""
 cleanup() {
   local status=$?
-  # Until the release commit exists, put the version back as it was (also on every dry run).
-  if [[ "$DONE" != *committed* && -f "$WORK/Info.plist" ]]; then cp "$WORK/Info.plist" "$PLIST"; fi
   if [[ $status -ne 0 && -n "$DONE" ]]; then
     echo >&2
     echo "release: stopped after: ${DONE# }" >&2
@@ -63,11 +63,8 @@ cleanup() {
       *tap-pushed*) ;;
       *published*) echo "  The release is public but the cask isn't updated. Finish with:" >&2
                    echo "    cp $PREPARED_CASK $CASK && git -C $TAP_DIR commit -am 'thumbs-out $VERSION' && git -C $TAP_DIR push" >&2 ;;
-      *drafted*)   echo "  A draft release exists (not public). Fix the problem, then: gh release edit $TAG --repo $REPO --draft=false" >&2
-                   echo "  and update the cask; or delete it: gh release delete $TAG --repo $REPO --yes" >&2 ;;
-      *pushed*)    echo "  The commit and tag are on GitHub but there's no release yet. Re-create it with:" >&2
-                   echo "    gh release create $TAG $ZIP --repo $REPO --draft --title 'thumbs-out $VERSION' --notes-file $NOTES_PATH" >&2 ;;
-      *committed*) echo "  Only local: undo with  git tag -d $TAG 2>/dev/null; git reset --hard HEAD~1" >&2 ;;
+      *drafted*)   echo "  A draft release exists (not public, no tag yet). Delete it and run again:" >&2
+                   echo "    gh release delete $TAG --repo $REPO --yes" >&2 ;;
     esac
   fi
   rm -rf "$WORK"
@@ -76,28 +73,31 @@ trap cleanup EXIT
 
 step "Checking the repository and tools"
 [[ "$(git branch --show-current)" == "main" ]] || require "not on main"
-[[ -z "$(git status --porcelain)" ]] || require "uncommitted changes; commit them first"
+[[ -z "$(git status --porcelain)" ]] || require "uncommitted changes; the release builds what's committed"
 git fetch -q origin --tags
-[[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] || require "HEAD isn't origin/main; pull or push first"
+[[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] || require "HEAD isn't origin/main; pull first"
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then fail "$TAG already exists"; fi
-CURRENT=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST")
-BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST")
-NEWEST=$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -1)
-[[ "$NEWEST" == "$VERSION" && "$CURRENT" != "$VERSION" ]] || fail "$VERSION isn't newer than $CURRENT"
-gh auth status >/dev/null 2>&1 || require "gh isn't signed in (gh auth login)"
+PREVIOUS=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+if [[ -n "$PREVIOUS" ]]; then
+  NEWEST=$(printf '%s\n%s\n' "${PREVIOUS#v}" "$VERSION" | sort -V | tail -1)
+  [[ "$NEWEST" == "$VERSION" && "${PREVIOUS#v}" != "$VERSION" ]] || fail "$VERSION isn't newer than $PREVIOUS"
+fi
+if gh auth status >/dev/null 2>&1; then
+  if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then fail "a release (maybe a draft) called $TAG already exists"; fi
+else
+  require "gh isn't signed in (gh auth login)"
+fi
 [[ -f "$CASK" ]] || fail "no cask at $CASK; set TAP_DIR to the homebrew-tap checkout"
 [[ -z "$(git -C "$TAP_DIR" status --porcelain)" ]] || require "the tap has uncommitted changes"
 $DRY_RUN || git -C "$TAP_DIR" pull -q --ff-only
-
-step "Bumping $CURRENT ($BUILD) to $VERSION ($((BUILD + 1)))"
-cp "$PLIST" "$WORK/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $((BUILD + 1))" "$PLIST"
+TARGET=$(git rev-parse HEAD)
+BUILD_NUMBER=$(git rev-list --count HEAD)
 
 step "Testing"
 swift test 2>&1 | tail -3
 
-step "Building and zipping"
-./scripts/build-app.sh
+step "Building $VERSION ($BUILD_NUMBER) and zipping"
+VERSION="$VERSION" BUILD_NUMBER="$BUILD_NUMBER" ./scripts/build-app.sh
 codesign --verify --strict build/thumbs-out.app
 [[ "$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" build/thumbs-out.app/Contents/Info.plist)" == "$VERSION" ]] \
   || fail "the built app doesn't say $VERSION"
@@ -120,7 +120,6 @@ step "Writing release notes"
 if [[ -n "$NOTES_FILE" ]]; then
   cp "$NOTES_FILE" "$WORK/notes.md" && mv "$WORK/notes.md" "$NOTES_PATH"
 else
-  PREVIOUS=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
   # Conventional commit subjects since the last release, without their type prefix. Only commits
   # that change the app count: website and debug-renderer work isn't in the download.
   changes() {
@@ -148,17 +147,14 @@ cat "$NOTES_PATH"
 
 if $DRY_RUN; then
   step "Done (dry run)"
-  echo "Nothing was committed, tagged, published or pushed; the version is back to $CURRENT."
+  echo "Nothing was tagged, published or pushed."
   exit 0
 fi
 
-step "Publishing $TAG"
-git commit -q -m "chore: release $VERSION" -- "$PLIST"
-DONE="$DONE committed"
-git tag -a "$TAG" -m "thumbs-out $VERSION"
-git push -q origin main "$TAG"
-DONE="$DONE pushed"
-gh release create "$TAG" "$ZIP" --repo "$REPO" --draft --title "thumbs-out $VERSION" --notes-file "$NOTES_PATH"
+step "Publishing $TAG from ${TARGET:0:7}"
+# A draft has no tag yet; GitHub creates it on the commit above when the release is published.
+gh release create "$TAG" "$ZIP" --repo "$REPO" --draft --target "$TARGET" \
+  --title "thumbs-out $VERSION" --notes-file "$NOTES_PATH"
 DONE="$DONE drafted"
 
 step "Checking the uploaded zip"
@@ -172,6 +168,7 @@ gh api -H "Accept: application/octet-stream" "$ASSET_URL" > "$WORK/uploaded.zip"
 echo "matches $SHA"
 gh release edit "$TAG" --repo "$REPO" --draft=false --latest
 DONE="$DONE published"
+git fetch -q origin --tags
 
 step "Updating the Homebrew cask"
 cp "$UPDATED" "$CASK"

@@ -155,12 +155,21 @@ put it in a bag with poor airflow.
 One scrolling page: **Agents** (found/covered, watch toggles, scan again), **Keeping Awake**
 (master switch, grace period meter, display), **Lid Closed** (switch, lock the screen, battery threshold, removal),
 **Time Kept Awake** (today, 7 and 30 days, all time, longest stretch, reset), **Detection** (poll
-interval, ignored processes) and **General** (launch at login, show welcome again).
+interval, ignored processes), **General** (launch at login, show welcome again, report a bug) and
+**Updates** (automatic check, check now).
 
 Awake time is counted between detection ticks while thumbs-out holds its lock; gaps longer than
 about two poll intervals (the Mac slept anyway) aren't counted. Daily totals are kept for 30 days.
 
 <br clear="right">
+
+## Updates
+
+Once a day thumbs-out asks GitHub's API for the latest release (one anonymous request to
+`api.github.com`; nothing about you or your Mac is sent). When there's a newer version, the top of
+the menu panel says so: Homebrew installs get `brew upgrade --cask thumbs-out` to copy, others a
+link to the release page. Nothing is downloaded or installed automatically. Turn the check off, or
+run it now, in Settings › **Updates**.
 
 ## Build and run
 
@@ -174,6 +183,13 @@ swift build && .build/debug/ThumbsOut --render-snapshots /tmp/snaps   # PNGs of 
 .build/debug/ThumbsOut --render-demo docs/images   # demo GIF (debug only)
 .build/debug/ThumbsOut --render-site docs/images   # tour panels, app icon, social preview (debug only)
 ```
+
+Cutting a release (maintainers): `scripts/release.sh 1.2.0 --dry-run` runs the tests, builds and
+zips the app and writes the release notes without publishing anything. Without `--dry-run` it also
+publishes the GitHub release (as a draft first, made public once the uploaded zip checks out) and
+updates the Homebrew cask in `../homebrew-tap` (or `TAP_DIR`). It commits nothing: `main` only
+changes through pull requests, and the version comes from the release tag, which `build-app.sh`
+writes into the app (local builds get the latest tag).
 
 For **Launch at login** to work reliably, install the app to `/Applications` first. macOS may ask
 you to approve it under System Settings › General › Login Items.

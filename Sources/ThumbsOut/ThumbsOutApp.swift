@@ -12,6 +12,7 @@ struct ThumbsOutApp: App {
                 openSettings: { appDelegate.windows.showSettings() },
                 reportProblem: { appDelegate.windows.showReportProblem() }
             )
+            .environment(appDelegate.updates)
         } label: {
             Image(nsImage: MenuBarGlyph.image(
                 for: appDelegate.controller.decision,
@@ -29,7 +30,8 @@ struct ThumbsOutApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let controller = AwakeController()
-    lazy var windows = WindowManager(controller: controller)
+    let updates = UpdateChecker()
+    lazy var windows = WindowManager(controller: controller, updates: updates)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
@@ -47,12 +49,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
         controller.start()
+        updates.start()
         if !windows.hasCompletedOnboarding {
             windows.showOnboarding()
         }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        updates.stop()
         controller.stop()
     }
 }

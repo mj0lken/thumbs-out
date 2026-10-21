@@ -8,12 +8,14 @@ final class WindowManager: NSObject, NSWindowDelegate {
     private static let onboardingKey = "hasCompletedOnboarding"
 
     private let controller: AwakeController
+    private let updates: UpdateChecker
     private var onboardingWindow: NSWindow?
     private var settingsWindow: NSWindow?
     private var reportWindow: NSWindow?
 
-    init(controller: AwakeController) {
+    init(controller: AwakeController, updates: UpdateChecker) {
         self.controller = controller
+        self.updates = updates
     }
 
     var hasCompletedOnboarding: Bool {
@@ -47,6 +49,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
             showWelcome: { [weak self] in self?.showOnboarding() },
             reportProblem: { [weak self] in self?.showReportProblem() }
         )
+        .environment(updates)
         let window = makeWindow(content: view, title: "thumbs-out Settings")
         window.styleMask = [.titled, .closable, .resizable, .miniaturizable]
         window.setContentSize(NSSize(width: 520, height: 720))

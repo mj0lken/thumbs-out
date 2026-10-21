@@ -9,6 +9,8 @@ struct MenuPanel: View {
 
     @AppStorage(SettingsKey.isAutoEnabled) private var isAutoEnabled = AppSettings.defaults.isAutoEnabled
     @AppStorage(SettingsKey.gracePeriodMinutes) private var gracePeriodMinutes = AppSettings.defaults.gracePeriodMinutes
+    /// Absent in snapshots that don't show an update.
+    @Environment(UpdateChecker.self) private var updates: UpdateChecker?
 
     /// Redraws countdowns and the "now" stretch while the panel is open, between detection ticks.
     private static let clockInterval: TimeInterval = 15
@@ -21,6 +23,9 @@ struct MenuPanel: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
+            if let update = updates?.availableUpdate {
+                UpdateBanner(release: update, isHomebrewInstall: updates?.isHomebrewInstall ?? false)
+            }
             StatusHeader(controller: controller, isAutoEnabled: $isAutoEnabled)
             StatsStrip(stats: controller.stats, isAwake: controller.decision.keepsAwake)
             AgentsTile(controller: controller)

@@ -1,6 +1,7 @@
 #if DEBUG
 import AppKit
 import SwiftUI
+import ThumbsOutCore
 
 /// `ThumbsOut --render-snapshots <dir>` writes PNGs of every screen, in light and dark, then exits.
 /// Debug builds only; used to review the UI without driving the real menu bar.
@@ -23,6 +24,18 @@ enum SnapshotRenderer {
                 scheme, directory, "menu-other-apps-\(suffix)"
             )
             render(SettingsView(controller: controller, showWelcome: {}, reportProblem: {}).frame(width: 520, height: 1500), scheme, directory, "settings-\(suffix)")
+            // A newer release found: the banner on the panel and the Updates section in Settings.
+            let update = UpdateChecker(previewing: LatestRelease(
+                version: AppVersion("9.9.0")!, pageURL: URL(string: "https://github.com/mj0lken/thumbs-out/releases/tag/v9.9.0")!
+            ))
+            render(
+                MenuPanel(controller: controller, openSettings: {}, reportProblem: {}).environment(update).background(.regularMaterial),
+                scheme, directory, "menu-update-\(suffix)"
+            )
+            render(
+                Form { UpdatesSection() }.formStyle(.grouped).environment(update).frame(width: 520, height: 260),
+                scheme, directory, "settings-updates-\(suffix)"
+            )
             for step in OnboardingView.Step.allCases {
                 render(OnboardingView(controller: controller, initialStep: step) {}, scheme, directory, "onboarding-\(step.rawValue)-\(suffix)")
             }

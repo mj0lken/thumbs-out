@@ -26,6 +26,7 @@ struct SettingsView: View {
             StatsSection(controller: controller)
             detectionSection
             GeneralSection(showWelcome: showWelcome, reportProblem: reportProblem)
+            UpdatesSection()
         }
         .formStyle(.grouped)
         .tint(Theme.working)

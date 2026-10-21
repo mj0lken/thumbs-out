@@ -10,6 +10,7 @@ enum SettingsKey {
     static let ignoredProcessNames = "ignoredProcessNames"
     static let isLidClosedModeEnabled = "isLidClosedModeEnabled"
     static let minimumBatteryPercent = "minimumBatteryPercent"
+    static let checksForUpdates = "checksForUpdates"
 
     static func watch(_ agent: Agent) -> String { "watch.\(agent.id)" }
 }
@@ -44,6 +45,8 @@ struct AppSettings: Equatable {
             SettingsKey.ignoredProcessNames: defaultIgnoredProcessNamesText,
             SettingsKey.isLidClosedModeEnabled: defaults.isLidClosedModeEnabled,
             SettingsKey.minimumBatteryPercent: defaults.minimumBatteryPercent,
+            // On by default: one request to GitHub a day, and nothing is installed without the user.
+            SettingsKey.checksForUpdates: true,
         ]
         for agent in Agent.allCases {
             values[SettingsKey.watch(agent)] = agent.isWatchedByDefault

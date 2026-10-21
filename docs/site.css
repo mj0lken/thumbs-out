@@ -119,7 +119,7 @@ body.story-playing .site-header { transform: translateY(-100%); opacity: 0; }
 .mb-icon { display: grid; place-items: center; width: 30px; height: 22px; border-radius: 6px; color: #fff; transition: background var(--duration-fast); }
 .mb-icon svg { width: 16px; height: 16px; }
 .mb-wifi { width: 16px; height: 16px; }
-.panel-wrap { position: relative; width: 100%; aspect-ratio: 684 / 1280; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255, 255, 255, 0.12); }
+.panel-wrap { position: relative; width: 100%; aspect-ratio: 684 / 1192; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255, 255, 255, 0.12); }
 .panel { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
 .panel-working { opacity: 1; }
 .tour { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
@@ -146,7 +146,7 @@ body.story-playing .site-header { transform: translateY(-100%); opacity: 0; }
 .intro.is-live .desktop.is-visible { visibility: visible; transition-delay: 0s; }
 .intro.is-live .menubar { position: absolute; inset: 0 0 auto; margin: 0; }
 .intro.is-live .panel-wrap {
-  position: absolute; top: 38px; left: 0; width: auto; height: min(calc(100svh - 120px), 640px);
+  position: absolute; top: 38px; left: 0; width: auto; height: min(calc(100svh - 120px), 596px);
   transform-origin: 50% 0; opacity: 0; transform: translateY(-14px) scale(0.97);
   transition: opacity var(--duration-step) var(--ease-out), transform var(--duration-step) var(--ease-out);
 }
@@ -165,12 +165,12 @@ body.story-playing .site-header { transform: translateY(-100%); opacity: 0; }
   box-shadow: 0 0 0 2.5px var(--awake), 0 0 24px 4px var(--awake-glow), 0 0 0 2000px rgba(21, 20, 43, 0.42);
   transition: opacity var(--duration-step) ease;
 }
-.spot-0 { top: 0.6%; height: 9.6%; }
-.spot-1 { top: 23.3%; height: 35.8%; }
-.spot-2 { top: 10%; height: 12.1%; }
-.spot-3 { top: 60.3%; height: 13.8%; }
-.spot-4 { top: 75.3%; height: 8.8%; }
-.spot-5 { top: 85.3%; height: 13.2%; }
+.spot-0 { top: 0.65%; height: 10.3%; }
+.spot-1 { top: 25%; height: 24.7%; }
+.spot-2 { top: 10.75%; height: 12.95%; }
+.spot-3 { top: 51%; height: 14.8%; }
+.spot-4 { top: 67.1%; height: 9.45%; }
+.spot-5 { top: 77.85%; height: 20.55%; }
 .desktop[data-step="0"] .spot-0, .desktop[data-step="1"] .spot-1, .desktop[data-step="2"] .spot-2,
 .desktop[data-step="3"] .spot-3, .desktop[data-step="4"] .spot-4, .desktop[data-step="5"] .spot-5 { opacity: 1; }
 

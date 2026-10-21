@@ -93,7 +93,7 @@
 
     // Panel sits under the menu bar icon, kept on screen.
     const iconRect = icon.getBoundingClientRect();
-    const panelWidth = panelWrap.offsetHeight * (684 / 1280);
+    const panelWidth = panelWrap.offsetHeight * (684 / 1192);
     const panelLeft = narrow
       ? (vw - panelWidth) / 2
       : Math.min(vw - panelWidth - 16, Math.max(16, iconRect.left + iconRect.width / 2 - panelWidth / 2));

@@ -136,6 +136,14 @@ sleep off only while it's keeping the Mac awake, and turns it back on:
 - within about 5 seconds if the app crashes or is killed (a small watchdog process),
 - on the next launch, if a previous run left it off.
 
+**Lock the screen when the lid closes** (on by default) locks your session the moment the lid shuts
+while thumbs-out is keeping the Mac awake, the same as Control-Command-Q. Agents keep running behind
+the lock screen, and the Mac opens to the login window instead of your desktop. It doesn't lock when
+the Mac would sleep anyway, or when an external display is connected (closing the lid there means
+working on the big screen). macOS has no public API for locking the screen, so this uses
+`SACLockScreenImmediate` from the private login framework, looked up at run time; if a future macOS
+removes it, the setting is greyed out.
+
 It never turns off a `SleepDisabled` that something else turned on. **Remove Lid-Closed Setup…** in Settings
 turns lid sleep back on and deletes the rule. A closed MacBook running agents gets warm, so don't
 put it in a bag with poor airflow.
@@ -145,7 +153,7 @@ put it in a bag with poor airflow.
 <img src="docs/images/settings.png" width="420" align="right" alt="thumbs-out settings">
 
 One scrolling page: **Agents** (found/covered, watch toggles, scan again), **Keeping Awake**
-(master switch, grace period meter, display), **Lid Closed** (switch, battery threshold, removal),
+(master switch, grace period meter, display), **Lid Closed** (switch, lock the screen, battery threshold, removal),
 **Time Kept Awake** (today, 7 and 30 days, all time, longest stretch, reset), **Detection** (poll
 interval, ignored processes) and **General** (launch at login, show welcome again).
 

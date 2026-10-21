@@ -262,6 +262,8 @@ private struct LidStep: View {
     private var isEnabled = AppSettings.defaults.isLidClosedModeEnabled
     @AppStorage(SettingsKey.minimumBatteryPercent)
     private var minimumBatteryPercent = AppSettings.defaults.minimumBatteryPercent
+    @AppStorage(SettingsKey.locksScreenOnLidClose)
+    private var locksScreen = AppSettings.defaults.locksScreenOnLidClose
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -280,6 +282,15 @@ private struct LidStep: View {
                 .disabled(controller.lid.isBusy)
 
                 if isEnabled, controller.lid.isSetUp {
+                    if ScreenLocker.isAvailable {
+                        Divider()
+                        SwitchRow(
+                            title: "Lock the screen when the lid closes",
+                            subtitle: "Agents keep running. Log in as usual when you open it.",
+                            isOn: $locksScreen,
+                            tint: Theme.lid
+                        )
+                    }
                     Divider()
                     Picker("Stop below battery level", selection: $minimumBatteryPercent) {
                         ForEach(AppSettings.minimumBatteryChoices, id: \.self) { Text("\($0)%").tag($0) }

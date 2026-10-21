@@ -19,6 +19,9 @@ struct ThumbsOutApp: App {
             ))
         }
         .menuBarExtraStyle(.window)
+        // Without this the window only ever grows: when the panel gets shorter, the content and its
+        // blurred background shrink to the middle and leave see-through strips above and below.
+        .windowResizability(.contentSize)
     }
 }
 

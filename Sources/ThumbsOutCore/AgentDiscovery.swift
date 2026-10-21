@@ -77,4 +77,34 @@ public enum AgentStatus: Sendable, Equatable {
     }
 
     public var isFound: Bool { self != .notFound }
+
+    /// The app or CLI is running, idle or not.
+    public var isOpen: Bool {
+        switch self {
+        case .running, .working: true
+        case .installed, .notFound: false
+        }
+    }
+}
+
+/// The menu's agent list: what's open now, what else is installed, and the rest of the catalog.
+public struct AgentGroups: Equatable, Sendable {
+    public let open: [Agent]
+    public let installed: [Agent]
+    public let notInstalled: [Agent]
+
+    /// Editors and local models only count as open while watched: an editor left open doesn't keep
+    /// the Mac awake, so it waits with the installed ones. Each group keeps catalog order.
+    public static func group(
+        _ catalog: [Agent] = Agent.allCases, watched: Set<Agent>, status: (Agent) -> AgentStatus
+    ) -> AgentGroups {
+        let open = catalog.filter { agent in
+            status(agent).isOpen && (agent.category == .agent || watched.contains(agent))
+        }
+        return AgentGroups(
+            open: open,
+            installed: catalog.filter { status($0).isFound && !open.contains($0) },
+            notInstalled: catalog.filter { !status($0).isFound }
+        )
+    }
 }

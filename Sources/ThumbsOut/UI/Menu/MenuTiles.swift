@@ -52,62 +52,70 @@ extension AwakeController {
     }
 }
 
-/// Other apps currently keeping the Mac awake, collapsed by default.
+/// How many other apps are keeping the Mac awake; clicking lists them beside the menu.
 struct BlockersTile: View {
     let blockers: [SleepBlocker]
     var hasLid = true
-    @State private var isExpanded = false
+    @State private var isShowingList = false
+
+    var body: some View {
+        Button {
+            isShowingList.toggle()
+        } label: {
+            HStack {
+                Text(blockers.isEmpty ? "No other apps keeping it awake" : "Other apps keeping it awake")
+                    .font(.tileTitle)
+                if !blockers.isEmpty {
+                    Text("\(blockers.count)")
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .padding(.horizontal, 6)
+                        .background(Color.primary.opacity(0.1), in: Capsule())
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(isShowingList ? .primary : .secondary)
+                }
+            }
+            .tile()
+            .contentShape(RoundedRectangle(cornerRadius: Theme.tileRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(blockers.isEmpty)
+        .sidePanel(isPresented: $isShowingList) { BlockersList(blockers: blockers, hasLid: hasLid) }
+    }
+}
+
+/// The other apps keeping the Mac awake, with what each one says it's doing.
+struct BlockersList: View {
+    let blockers: [SleepBlocker]
+    let hasLid: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button {
-                withAnimation(.snappy(duration: 0.2)) { isExpanded.toggle() }
-            } label: {
-                HStack {
-                    Text(blockers.isEmpty ? "No other apps keeping it awake" : "Other apps keeping it awake")
-                        .font(.tileTitle)
-                    if !blockers.isEmpty {
-                        Text("\(blockers.count)")
-                            .font(.caption.weight(.semibold).monospacedDigit())
-                            .padding(.horizontal, 6)
-                            .background(Color.primary.opacity(0.1), in: Capsule())
-                    }
-                    Spacer()
-                    if !blockers.isEmpty {
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    }
-                }
-                .contentShape(Rectangle())
+            Text("Other apps keeping it awake").font(.sectionLabel).foregroundStyle(.secondary)
+            if blockers.isEmpty {
+                Text("None right now").font(.caption).foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
-            .disabled(blockers.isEmpty)
-
-            if isExpanded {
-                ForEach(blockers) { blocker in
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(blocker.processName).font(.system(size: 12, weight: .medium))
-                        if let summary = blocker.summary {
-                            Text(summary).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                        Spacer(minLength: 0)
-                        if blocker.keepsDisplayOn {
-                            Image(systemName: "display").font(.caption2).foregroundStyle(.secondary)
-                                .help("Also keeps the display on")
-                        }
+            ForEach(blockers) { blocker in
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(blocker.processName).font(.system(size: 12, weight: .medium))
+                    if let summary = blocker.summary {
+                        Text(summary).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    Spacer(minLength: 0)
+                    if blocker.keepsDisplayOn {
+                        Image(systemName: "display").font(.caption2).foregroundStyle(.secondary)
+                            .help("Also keeps the display on")
+                    }
                 }
-                if hasLid {
-                    Text("These don't keep the Mac awake once the lid is closed.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
+            }
+            if hasLid {
+                Text("These don't keep the Mac awake once the lid is closed.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .tile()
     }
 }
 

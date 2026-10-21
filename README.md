@@ -93,12 +93,14 @@ by bundle ID) and command-line tools (`claude`, `codex`, `agy` in `~/.local/bin`
 
 - **Status header**: whether the Mac is being kept awake and why, plus the master switch
 - **Time kept awake**: the current stretch, today and the last 7 days
-- **Agents**: each agent with its app icon, what it's running, and a status dot (pulses while working)
+- **Agents**: the agents open right now, each with its app icon, what it's running, and a status dot
+  (pulses while working); the row below opens a list beside the panel with the other installed ones
+  and every agent thumbs-out supports
 - **Grace period meter**: snaps to 0m, 1, 2, 5, 10, 15, 20, 30 min, 1h, 2h, 4h; while a grace period
   counts down, the time left shows as an amber bar
 - **Stay awake with lid closed**: lid-closed mode switch and what closing the lid would do right now
 - **Other apps keeping it awake**: everything else holding a keep-awake lock (same data as
-  `pmset -g assertions`), collapsed by default
+  `pmset -g assertions`), listed beside the panel when you click it
 - **Keep awake manually…**: 15 minutes, 1, 2 or 5 hours, or until you stop it; [Report a bug](#report-a-bug), Settings and Quit
 
 ## Lid-closed mode

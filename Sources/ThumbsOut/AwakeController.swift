@@ -1,4 +1,3 @@
-import AppKit
 import ThumbsOutCore
 import Foundation
 import Observation
@@ -27,7 +26,7 @@ final class AwakeController {
     @ObservationIgnored private var lastActivity: Date?
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private var settingsObserver: NSObjectProtocol?
-    @ObservationIgnored private var screenObservers: [NSObjectProtocol] = []
+    @ObservationIgnored private let lidWatcher = LidWatcher()
     @ObservationIgnored private var lidLock = LidLockState.unknown
     @ObservationIgnored private var lastSettings = AppSettings.defaults
     @ObservationIgnored private var pendingSettingsRefresh: Task<Void, Never>?
@@ -39,6 +38,7 @@ final class AwakeController {
     @ObservationIgnored private var lastCPUSample: CPUSample?
 
     private static let log = Logger(subsystem: "com.mj0lken.thumbs-out", category: "detection")
+    private static let lockLog = Logger(subsystem: "com.mj0lken.thumbs-out", category: "lock")
     private static let settingsDebounce: Duration = .milliseconds(400)
     /// Installed apps rarely change; rescanning once a minute is plenty.
     private static let rescanInterval: TimeInterval = 60
@@ -59,12 +59,13 @@ final class AwakeController {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.settingsDidChange() }
         }
-        // Closing and opening the lid sleeps and wakes the built-in screen: check right away instead
-        // of on the next tick, so the screen locks promptly and a quick close-open-close isn't missed.
-        screenObservers = [NSWorkspace.screensDidSleepNotification, NSWorkspace.screensDidWakeNotification].map { name in
-            NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refreshNow() }
-            }
+        // Where the lid is now, so a closure before the first tick isn't taken for one at launch.
+        updateLidLock(isLidClosed: SystemPowerReader.isLidClosed(), source: "launch")
+        // Every time the lid moves, not just on the next tick: the screen locks right away, and an
+        // opening between two ticks is still seen, so the closure after it locks too. A close counts
+        // only if the lid is still closed, in case the message was queued behind an opening.
+        lidWatcher.start { [weak self] isClosed in
+            self?.updateLidLock(isLidClosed: isClosed && SystemPowerReader.isLidClosed(), source: "lid event")
         }
         loop = Task { [weak self] in
             while !Task.isCancelled {
@@ -82,8 +83,7 @@ final class AwakeController {
         pendingSettingsRefresh?.cancel()
         if let settingsObserver { NotificationCenter.default.removeObserver(settingsObserver) }
         settingsObserver = nil
-        screenObservers.forEach(NSWorkspace.shared.notificationCenter.removeObserver)
-        screenObservers = []
+        lidWatcher.stop()
         assertion.release()
         lid.restoreForTermination()
         StatsStore.save(stats)
@@ -170,10 +170,6 @@ final class AwakeController {
         }
     }
 
-    private func refreshNow() {
-        Task { [weak self] in await self?.refresh() }
-    }
-
     private func refresh() async {
         refreshGeneration += 1
         let generation = refreshGeneration
@@ -238,7 +234,8 @@ final class AwakeController {
             : []
         runningAgents = Set(scan.agentPIDs.keys)
         power = scan.power
-        lockScreenIfLidClosed(settings: settings)
+        // Before this tick changes the lid-sleep state, and with a fresh reading rather than the scan's.
+        updateLidLock(isLidClosed: SystemPowerReader.isLidClosed(), source: "check")
 
         let now = Date()
         if !commands.isEmpty { lastActivity = now }
@@ -247,16 +244,21 @@ final class AwakeController {
     }
 
     /// Locks the screen once the lid is closed while thumbs-out keeps the Mac awake, so it opens to the
-    /// login window instead of your session. Checked before this tick changes the lid-sleep state.
-    private func lockScreenIfLidClosed(settings: AppSettings) {
-        let shouldLock = lidLock.shouldLock(
-            isEnabled: settings.locksScreenOnLidClose,
-            isLidClosed: power.isLidClosed,
+    /// login window instead of your session. Lid events cover each opening and closing; the tick's
+    /// check covers things changing while it stays closed, like a monitor being unplugged.
+    /// Every lid change is logged with what was decided, so missed locks can be traced.
+    private func updateLidLock(isLidClosed: Bool, source: String) {
+        let decision = lidLock.decide(
+            isEnabled: lastSettings.locksScreenOnLidClose,
+            isLidClosed: isLidClosed,
             lidSleepDisabledByUs: lid.isDisabledByUs,
-            hasExternalDisplay: power.hasExternalDisplay
+            hasExternalDisplay: SystemPowerReader.externalDisplayIsConnected()
         )
-        let locked = shouldLock && ScreenLocker.lock()
-        lidLock = lidLock.next(isLidClosed: power.isLidClosed, locked: locked)
+        if let line = lidLock.logLine(isLidClosed: isLidClosed, decision: decision) {
+            Self.lockLog.notice("\(line, privacy: .public) (\(source, privacy: .public))")
+        }
+        let locked = decision == .lock && ScreenLocker.lock()
+        lidLock = lidLock.next(isLidClosed: isLidClosed, locked: locked)
     }
 
     /// What one detection tick found off the main actor.

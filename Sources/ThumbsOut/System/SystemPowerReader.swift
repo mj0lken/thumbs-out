@@ -36,8 +36,15 @@ enum SystemPowerReader {
         )
     }
 
+    /// Just the lid, cheap enough to read the moment it's needed rather than from the last scan.
+    static func isLidClosed() -> Bool {
+        let root = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMrootDomain"))
+        defer { if root != 0 { IOObjectRelease(root) } }
+        return boolProperty("AppleClamshellState", of: root) ?? false
+    }
+
     /// Online rather than active displays, so a docked monitor that's asleep still counts.
-    private static func externalDisplayIsConnected() -> Bool {
+    static func externalDisplayIsConnected() -> Bool {
         var count: UInt32 = 0
         guard CGGetOnlineDisplayList(0, nil, &count) == .success, count > 0 else { return false }
         var displays = [CGDirectDisplayID](repeating: 0, count: Int(count))

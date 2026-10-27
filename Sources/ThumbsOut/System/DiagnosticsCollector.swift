@@ -18,6 +18,7 @@ enum DiagnosticsCollector {
 
     static func collect(from controller: AwakeController) async -> Result {
         await controller.lid.refreshSetupStatus()
+        async let lockDelay = ScreenLockDelayReader.read()
         let (log, crashes, mac) = await Task.detached(priority: .userInitiated) {
             (AppLog.recentLines(limit: logLimit), CrashReport.find(), MacFacts.read())
         }.value
@@ -26,7 +27,7 @@ enum DiagnosticsCollector {
             sections: [
                 appSection(crashes: crashes),
                 macSection(mac, power: controller.power),
-                setupSection(controller, settings: settings),
+                setupSection(controller, settings: settings, lockDelay: await lockDelay),
                 nowSection(controller),
                 settingsSection(settings),
                 agentsSection(controller, watched: settings.watchedAgents),
@@ -64,7 +65,9 @@ enum DiagnosticsCollector {
         ])
     }
 
-    private static func setupSection(_ controller: AwakeController, settings: AppSettings) -> IssueReport.Section {
+    private static func setupSection(
+        _ controller: AwakeController, settings: AppSettings, lockDelay: ScreenLockDelay?
+    ) -> IssueReport.Section {
         let lid = controller.lid
         var facts: [IssueReport.Fact] = [
             .init("Lid-closed setup (sudoers rule)", setupState(lid)),
@@ -73,6 +76,7 @@ enum DiagnosticsCollector {
                 "Lock screen on lid close",
                 ScreenLocker.isAvailable ? onOff(settings.locksScreenOnLidClose) : "unavailable on this macOS"
             ),
+            .init("macOS password delay", lockDelay?.label ?? "unknown"),
             .init("Sleep switch (pmset disablesleep)", sleepSwitch(controller)),
             .init("Closing the lid now", StatusPresentation.lidLine(for: controller.lidBehavior)),
             .init("Lid sleep decision", describe(controller.lidDecision)),

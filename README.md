@@ -142,7 +142,11 @@ the lock screen, and the Mac opens to the login window instead of your desktop. 
 the Mac would sleep anyway, or when an external display is connected (closing the lid there means
 working on the big screen). macOS has no public API for locking the screen, so this uses
 `SACLockScreenImmediate` from the private login framework, looked up at run time; if a future macOS
-removes it, the setting is greyed out.
+removes it, the setting is greyed out. That lock ignores macOS's password delay, but when thumbs-out
+isn't keeping the Mac awake, the Mac sleeps normally and the delay applies: if **Require password
+after screen saver begins or display is turned off** isn't Immediately, Settings and the welcome flow
+point you to Lock Screen settings (thumbs-out never changes it for you). With **Keep the display on
+too**, the screen won't lock on its own while thumbs-out keeps the display on.
 
 It never turns off a `SleepDisabled` that something else turned on. **Remove Lid-Closed Setup…** in Settings
 turns lid sleep back on and deletes the rule. A closed MacBook running agents gets warm, so don't

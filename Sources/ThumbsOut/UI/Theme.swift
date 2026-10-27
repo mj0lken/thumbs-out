@@ -165,6 +165,8 @@ struct AppSwitch: View {
 /// A labelled switch row for grouped forms, using `AppSwitch` so captures look right too.
 struct FormSwitch: View {
     let title: String
+    /// Shown under the title in the form's secondary style.
+    var subtitle: String?
     @Binding var isOn: Bool
     var tint: Color = Theme.working
 
@@ -172,9 +174,15 @@ struct FormSwitch: View {
 
     var body: some View {
         if rendersStatic {
-            LabeledContent(title) { AppSwitch(title: title, isOn: $isOn, tint: tint) }
+            LabeledContent { AppSwitch(title: title, isOn: $isOn, tint: tint) } label: { label }
         } else {
-            Toggle(title, isOn: $isOn).tint(tint)
+            Toggle(isOn: $isOn) { label }.tint(tint)
         }
+    }
+
+    @ViewBuilder
+    private var label: some View {
+        Text(title)
+        if let subtitle { Text(subtitle) }
     }
 }

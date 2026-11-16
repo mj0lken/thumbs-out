@@ -14,7 +14,7 @@ final class LidWatcher {
     /// `kClamshellStateBit` in the message argument: set while the lid is closed.
     private nonisolated static let closedBit: UInt = 1 << 0
 
-    private static let log = Logger(subsystem: "com.mj0lken.thumbs-out", category: "lock")
+    private static let log = Logger(subsystem: "com.mj0lken.thumbs-out", category: AppLog.lockCategory)
 
     /// Runs on the main queue, which the notification port delivers to.
     private nonisolated static let callback: IOServiceInterestCallback = { refcon, _, messageType, argument in

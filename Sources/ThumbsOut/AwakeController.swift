@@ -27,7 +27,9 @@ final class AwakeController {
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private var settingsObserver: NSObjectProtocol?
     @ObservationIgnored private let lidWatcher = LidWatcher()
+    @ObservationIgnored private var screenLockObservers: [NSObjectProtocol] = []
     @ObservationIgnored private var lidLock = LidLockState.unknown
+    @ObservationIgnored private var lidLockCycle = LidLockCycle.idle
     @ObservationIgnored private var lastSettings = AppSettings.defaults
     @ObservationIgnored private var pendingSettingsRefresh: Task<Void, Never>?
     /// Bumped on every refresh so a slow, older scan can't overwrite a newer result.
@@ -38,7 +40,7 @@ final class AwakeController {
     @ObservationIgnored private var lastCPUSample: CPUSample?
 
     private static let log = Logger(subsystem: "com.mj0lken.thumbs-out", category: "detection")
-    private static let lockLog = Logger(subsystem: "com.mj0lken.thumbs-out", category: "lock")
+    private static let lockLog = Logger(subsystem: "com.mj0lken.thumbs-out", category: AppLog.lockCategory)
     private static let settingsDebounce: Duration = .milliseconds(400)
     /// Installed apps rarely change; rescanning once a minute is plenty.
     private static let rescanInterval: TimeInterval = 60
@@ -67,6 +69,13 @@ final class AwakeController {
         lidWatcher.start { [weak self] isClosed in
             self?.updateLidLock(isLidClosed: isClosed && SystemPowerReader.isLidClosed(), source: "lid event")
         }
+        // macOS's own word on the lock screen, so the log shows a lid lock taking hold and its unlock.
+        screenLockObservers = [("com.apple.screenIsLocked", true), ("com.apple.screenIsUnlocked", false)]
+            .map { name, isLocked in
+                DistributedNotificationCenter.default().addObserver(forName: .init(name), object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.screenLockDidChange(isLocked: isLocked) }
+                }
+            }
         loop = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -84,6 +93,8 @@ final class AwakeController {
         if let settingsObserver { NotificationCenter.default.removeObserver(settingsObserver) }
         settingsObserver = nil
         lidWatcher.stop()
+        screenLockObservers.forEach(DistributedNotificationCenter.default().removeObserver)
+        screenLockObservers = []
         assertion.release()
         lid.restoreForTermination()
         StatsStore.save(stats)
@@ -257,8 +268,16 @@ final class AwakeController {
         if let line = lidLock.logLine(isLidClosed: isLidClosed, decision: decision) {
             Self.lockLog.notice("\(line, privacy: .public) (\(source, privacy: .public))")
         }
+        lidLockCycle = lidLockCycle.lidMoved(isClosed: isLidClosed)
         let locked = decision == .lock && ScreenLocker.lock()
         lidLock = lidLock.next(isLidClosed: isLidClosed, locked: locked)
+    }
+
+    private func screenLockDidChange(isLocked: Bool) {
+        let change = lidLockCycle.screenChanged(isLocked: isLocked)
+        lidLockCycle = change.next
+        guard change.logs else { return }
+        Self.lockLog.notice("\(isLocked ? "Screen locked" : "Screen unlocked", privacy: .public)")
     }
 
     /// What one detection tick found off the main actor.

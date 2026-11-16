@@ -46,16 +46,24 @@ struct MacFacts: Sendable {
 /// thumbs-out's own log entries from this run.
 enum AppLog {
     static let subsystem = "com.mj0lken.thumbs-out"
+    /// Lid openings and closings, locks and unlocks.
+    static let lockCategory = "lock"
 
+    /// The newest `limit` lines, and apart from them the newest `lidLimit` lid and lock lines, so a
+    /// busy log can't crowd those out.
+    ///
     /// Only this process's entries: older runs need the system-wide log, which takes admin rights
     /// and holds every other app's messages too.
-    static func recentLines(limit: Int) -> [String] {
+    static func recentLines(limit: Int, lidLimit: Int) -> (log: [String], lid: [String]) {
         do {
             let store = try OSLogStore(scope: .currentProcessIdentifier)
             let entries = try store.getEntries(matching: NSPredicate(format: "subsystem == %@", subsystem))
-            return entries.compactMap { $0 as? OSLogEntryLog }.suffix(limit).map(format)
+                .compactMap { $0 as? OSLogEntryLog }
+            let lid = entries.filter { $0.category == lockCategory }
+            let other = entries.filter { $0.category != lockCategory }
+            return (other.suffix(limit).map(format), lid.suffix(lidLimit).map(format))
         } catch {
-            return ["Couldn't read thumbs-out's log: \(error.localizedDescription)"]
+            return (["Couldn't read thumbs-out's log: \(error.localizedDescription)"], [])
         }
     }
 

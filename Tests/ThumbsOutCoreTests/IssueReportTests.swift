@@ -129,6 +129,32 @@ struct IssueReportTests {
         #expect(!report().markdown(redactor: redactor).contains("### Log"))
     }
 
+    func report(log: [String] = [], lidLog: [String]) -> IssueReport {
+        IssueReport(sections: [], log: log, lidLog: lidLog)
+    }
+
+    @Test("lid and lock events get their own fenced section, before the rest of the log")
+    func lidLogSection() {
+        let body = report(log: ["other"], lidLog: ["Lid closed: locking the screen", "Screen locked"]).markdown(redactor: redactor)
+        #expect(body.contains("### Lid and lock (this run)\n\n```text\nLid closed: locking the screen\nScreen locked\n```"))
+        let lid = body.range(of: "### Lid and lock")
+        let log = body.range(of: "### Log (this run)")
+        #expect(lid != nil && log != nil && lid!.lowerBound < log!.lowerBound)
+    }
+
+    @Test("no lid events, no lid section")
+    func noLidLog() {
+        #expect(!report(log: ["other"]).markdown(redactor: redactor).contains("### Lid and lock"))
+    }
+
+    @Test("a lid log limit keeps the newest events and says how many were left out")
+    func lidLogLimit() {
+        let body = report(lidLog: ["Lid opened", "Lid closed", "Screen locked"]).markdown(redactor: redactor, lidLogLimit: 1)
+        #expect(body.contains("2 earlier lines left out"))
+        #expect(body.contains("```text\nScreen locked\n```"))
+        #expect(!body.contains("Lid opened"))
+    }
+
     @Test("the body ends by saying what was collected")
     func footer() {
         #expect(report().markdown(redactor: redactor).contains("only its own version, settings, setup, detections and log"))
@@ -136,11 +162,14 @@ struct IssueReportTests {
 
     @Test("redacted copies the report with every collected value cleaned, and nothing else changed")
     func redacted() {
-        let clean = report(summary: "malcolm here", log: ["at /Users/malcolm"]).redacted(by: redactor)
+        var report = report(summary: "malcolm here", log: ["at /Users/malcolm"])
+        report.lidLog = ["Screen unlocked by malcolm"]
+        let clean = report.redacted(by: redactor)
         #expect(clean.summary == "malcolm here")
         #expect(clean.sections[0].facts[1].value == "~/Applications")
         #expect(clean.sections[1].facts[0].value == "sudo: <user> is not allowed")
         #expect(clean.log == ["at ~"])
+        #expect(clean.lidLog == ["Screen unlocked by <user>"])
     }
 
     @Test("title is the summary's first line", arguments: [
@@ -236,12 +265,56 @@ struct GitHubIssueLinkTests {
         #expect(query(url)["title"] == "a+b")
     }
 
-    private func report(logLines: Int, factCount: Int = 3) -> IssueReport {
+    private func report(logLines: Int, factCount: Int = 3, lidLines: Int = 0, kind: ProblemKind? = nil) -> IssueReport {
         IssueReport(
+            kind: kind,
             summary: "Something broke",
             sections: [.init("Facts", (0..<factCount).map { .init("Fact \($0)", String(repeating: "v", count: 60)) })],
-            log: (0..<logLines).map { "2026-10-20 12:00:\($0) error [lid] pmset disablesleep failed: line \($0)" }
+            log: (0..<logLines).map { "2026-10-20 12:00:\($0) error [lid] pmset disablesleep failed: line \($0)" },
+            lidLog: (0..<lidLines).map { "2026-10-20 12:00:\($0) notice [lock] Lid closed: locking the screen, event \($0)" }
         )
+    }
+
+    @Test("for a lid problem, the rest of the log is trimmed before any lid and lock events")
+    func lidProblemKeepsLidLog() {
+        let (url, fit) = GitHubIssueLink.bestFit(for: report(logLines: 400, lidLines: 5, kind: .lidClosed), redactor: redactor)
+        guard case .trimmedLog = fit else {
+            Issue.record("expected a trimmed log, got \(fit)")
+            return
+        }
+        #expect(url.absoluteString.count <= GitHubIssueLink.maxLength)
+        let body = query(url)["body"] ?? ""
+        #expect((0..<5).allSatisfy { body.contains("event \($0)\n") })
+    }
+
+    @Test("for a lid problem, lid and lock events are trimmed last, oldest first")
+    func lidProblemTrimsLidLogLast() {
+        let (url, fit) = GitHubIssueLink.bestFit(for: report(logLines: 10, lidLines: 400, kind: .lidClosed), redactor: redactor)
+        guard case .trimmedLog(let omitted) = fit else {
+            Issue.record("expected a trimmed log, got \(fit)")
+            return
+        }
+        #expect(omitted > 10 && omitted < 410)
+        #expect(url.absoluteString.count <= GitHubIssueLink.maxLength)
+        let body = query(url)["body"] ?? ""
+        #expect(!body.contains("### Log (this run)\n\n```"))
+        #expect(body.contains("event 399\n"))
+        #expect(!body.contains("event 0\n"))
+    }
+
+    @Test("for any other problem, lid and lock events are trimmed before the rest of the log", arguments: [
+        ProblemKind.agentNotDetected, ProblemKind.other, nil,
+    ])
+    func otherProblemKeepsLog(kind: ProblemKind?) {
+        let (url, fit) = GitHubIssueLink.bestFit(for: report(logLines: 5, lidLines: 400, kind: kind), redactor: redactor)
+        guard case .trimmedLog = fit else {
+            Issue.record("expected a trimmed log, got \(fit)")
+            return
+        }
+        #expect(url.absoluteString.count <= GitHubIssueLink.maxLength)
+        let body = query(url)["body"] ?? ""
+        #expect((0..<5).allSatisfy { body.contains("line \($0)\n") })
+        #expect(!body.contains("event 0\n"))
     }
 
     @Test("a short report fits whole")

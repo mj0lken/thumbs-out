@@ -247,7 +247,7 @@ private struct AwakeStep: View {
             .tile()
             SwitchRow(
                 title: "Keep the display on too",
-                subtitle: "Off lets the screen turn off while the Mac keeps working.",
+                subtitle: "Off lets the screen turn off while the Mac keeps working. On, the screen won't lock on its own while thumbs-out keeps the display on.",
                 isOn: $keepDisplayAwake
             )
             .tile()
@@ -264,6 +264,7 @@ private struct LidStep: View {
     private var minimumBatteryPercent = AppSettings.defaults.minimumBatteryPercent
     @AppStorage(SettingsKey.locksScreenOnLidClose)
     private var locksScreen = AppSettings.defaults.locksScreenOnLidClose
+    @State private var lockDelay: ScreenLockDelay?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -290,6 +291,9 @@ private struct LidStep: View {
                             isOn: $locksScreen,
                             tint: Theme.lid
                         )
+                        if locksScreen {
+                            LockDelayHint(delay: lockDelay)
+                        }
                     }
                     Divider()
                     Picker("Stop below battery level", selection: $minimumBatteryPercent) {
@@ -311,6 +315,7 @@ private struct LidStep: View {
             .symbolRenderingMode(.multicolor)
             .padding(.top, 14)
         }
+        .readsScreenLockDelay(into: $lockDelay)
     }
 }
 

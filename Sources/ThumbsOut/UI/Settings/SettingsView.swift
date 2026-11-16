@@ -104,7 +104,11 @@ struct SettingsView: View {
             }
             .padding(.vertical, 4)
             .disabled(!isAutoEnabled)
-            FormSwitch(title: "Keep the display on too", isOn: $keepDisplayAwake)
+            FormSwitch(
+                title: "Keep the display on too",
+                subtitle: "The screen won't lock on its own while thumbs-out keeps the display on.",
+                isOn: $keepDisplayAwake
+            )
         }
     }
 
@@ -140,6 +144,7 @@ private struct LidClosedSection: View {
     private var minimumBatteryPercent = AppSettings.defaults.minimumBatteryPercent
     @AppStorage(SettingsKey.locksScreenOnLidClose)
     private var locksScreen = AppSettings.defaults.locksScreenOnLidClose
+    @State private var lockDelay: ScreenLockDelay?
 
     private var lid: LidSleepController { controller.lid }
 
@@ -152,6 +157,9 @@ private struct LidClosedSection: View {
             if ScreenLocker.isAvailable {
                 FormSwitch(title: "Lock the screen when the lid closes", isOn: $locksScreen, tint: Theme.lid)
                     .disabled(!isEnabled || !lid.isSetUp)
+                if locksScreen, isEnabled, lid.isSetUp {
+                    LockDelayHint(delay: lockDelay)
+                }
             }
             Picker("Stop below battery level", selection: $minimumBatteryPercent) {
                 ForEach(AppSettings.minimumBatteryChoices, id: \.self) { Text("\($0)%").tag($0) }
@@ -174,6 +182,7 @@ private struct LidClosedSection: View {
                 .foregroundStyle(.secondary)
         }
         .task { await lid.refreshSetupStatus() }
+        .readsScreenLockDelay(into: $lockDelay)
     }
 }
 

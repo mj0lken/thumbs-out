@@ -140,7 +140,9 @@ sleep off only while it's keeping the Mac awake, and turns it back on:
 while thumbs-out is keeping the Mac awake, the same as Control-Command-Q. Agents keep running behind
 the lock screen, and the Mac opens to the login window instead of your desktop. It doesn't lock when
 the Mac would sleep anyway, or when an external display is connected (closing the lid there means
-working on the big screen). macOS has no public API for locking the screen, so this uses
+working on the big screen). When the Mac sleeps, macOS's own setting decides when it asks for the
+password: set it to Immediately under System Settings › Lock Screen to have every lid close lock.
+macOS has no public API for locking the screen, so this uses
 `SACLockScreenImmediate` from the private login framework, looked up at run time; if a future macOS
 removes it, the setting is greyed out.
 
@@ -199,6 +201,12 @@ Check what it's doing:
 ```bash
 pmset -g assertions | grep thumbs-out
 pmset -g | grep -i sleepdisabled
+```
+
+Every lid opening and closing is logged, with whether the screen locked and why not:
+
+```bash
+/usr/bin/log show --last 1h --predicate 'subsystem == "com.mj0lken.thumbs-out" AND category == "lock"' --style compact
 ```
 
 ## Compatibility

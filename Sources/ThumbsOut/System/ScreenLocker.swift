@@ -9,7 +9,7 @@ import os
 enum ScreenLocker {
     private typealias LockFunction = @convention(c) () -> Int32
 
-    private static let log = Logger(subsystem: "com.mj0lken.thumbs-out", category: "lock")
+    private static let log = Logger(subsystem: "com.mj0lken.thumbs-out", category: AppLog.lockCategory)
     private static let frameworkPath = "/System/Library/PrivateFrameworks/login.framework/Versions/Current/login"
 
     private static let lockFunction: LockFunction? = {

@@ -71,12 +71,16 @@ public struct IssueReport: Sendable, Equatable {
     public var sections: [Section]
     /// thumbs-out's own log lines, oldest first.
     public var log: [String]
+    /// Lid openings and closings, locks and unlocks, oldest first. Kept apart from `log` so other
+    /// lines can't crowd them out.
+    public var lidLog: [String]
 
-    public init(kind: ProblemKind? = nil, summary: String = "", sections: [Section], log: [String] = []) {
+    public init(kind: ProblemKind? = nil, summary: String = "", sections: [Section], log: [String] = [], lidLog: [String] = []) {
         self.kind = kind
         self.summary = summary
         self.sections = sections
         self.log = log
+        self.lidLog = lidLog
     }
 
     /// The picked problem and the summary's first line, shortened to fit an issue title.
@@ -98,14 +102,24 @@ public struct IssueReport: Sendable, Equatable {
             sections: sections.map { section in
                 Section(section.title, section.facts.map { Fact($0.label, Self.oneLine(redactor.redact($0.value))) })
             },
-            log: log.map(redactor.redact)
+            log: log.map(redactor.redact),
+            lidLog: lidLog.map(redactor.redact)
         )
     }
 
-    /// The issue body. `logLimit` keeps only the newest log lines, for links that must stay short.
-    public func markdown(redactor: PrivacyRedactor, logLimit: Int? = nil) -> String {
-        let clean = redacted(by: redactor)
-        let blocks = [clean.summaryBlock] + clean.sections.map(Self.block) + [clean.logBlock(limit: logLimit), Self.footer]
+    /// The issue body. `logLimit` and `lidLogLimit` keep only the newest lines, for links that must
+    /// stay short.
+    public func markdown(redactor: PrivacyRedactor, logLimit: Int? = nil, lidLogLimit: Int? = nil) -> String {
+        redacted(by: redactor).renderedMarkdown(logLimit: logLimit, lidLogLimit: lidLogLimit)
+    }
+
+    /// The issue body of a report that's already redacted, so trying many limits redacts only once.
+    func renderedMarkdown(logLimit: Int?, lidLogLimit: Int?) -> String {
+        let blocks = [summaryBlock] + sections.map(Self.block) + [
+            Self.logBlock("Lid and lock (this run)", lidLog, limit: lidLogLimit),
+            Self.logBlock("Log (this run)", log, limit: logLimit),
+            Self.footer,
+        ]
         return blocks.compactMap { $0 }.joined(separator: "\n\n") + "\n"
     }
 
@@ -126,11 +140,11 @@ public struct IssueReport: Sendable, Equatable {
             .replacingOccurrences(of: ">", with: "&gt;")
     }
 
-    private func logBlock(limit: Int?) -> String? {
+    private static func logBlock(_ title: String, _ log: [String], limit: Int?) -> String? {
         guard !log.isEmpty else { return nil }
         let kept = log.suffix(max(0, limit ?? log.count))
         let omitted = log.count - kept.count
-        var parts = ["### Log (this run)"]
+        var parts = ["### \(title)"]
         if omitted > 0 {
             parts.append("_\(omitted) earlier \(omitted == 1 ? "line" : "lines") left out to keep the link short._")
         }

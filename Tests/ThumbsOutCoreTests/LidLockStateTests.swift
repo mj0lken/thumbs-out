@@ -132,3 +132,60 @@ struct LidLockStateTests {
         #expect(logLine(.open, closed: false) == nil)
     }
 }
+
+@Suite("Lid lock log cycle")
+struct LidLockCycleTests {
+    /// Runs lid and screen changes through the cycle and returns the ones it would log.
+    func logged(_ events: [Event]) -> [Event] {
+        var cycle = LidLockCycle.idle
+        var logged: [Event] = []
+        for event in events {
+            switch event {
+            case .lid(let isClosed):
+                cycle = cycle.lidMoved(isClosed: isClosed)
+            case .screen(let isLocked):
+                let change = cycle.screenChanged(isLocked: isLocked)
+                cycle = change.next
+                if change.logs { logged.append(event) }
+            }
+        }
+        return logged
+    }
+
+    enum Event: Equatable {
+        case lid(isClosed: Bool)
+        case screen(isLocked: Bool)
+    }
+
+    @Test("logs the lock while the lid is closed and the unlock that ends it")
+    func lidClosure() {
+        let events: [Event] = [.lid(isClosed: true), .screen(isLocked: true), .lid(isClosed: false), .screen(isLocked: false)]
+        #expect(logged(events) == [.screen(isLocked: true), .screen(isLocked: false)])
+    }
+
+    @Test("leaves out locking by hand or the screen saver with the lid open: a public report shouldn't show the user's day")
+    func otherLocks() {
+        #expect(logged([.screen(isLocked: true), .screen(isLocked: false)]).isEmpty)
+    }
+
+    @Test("leaves out a lock after a closure that didn't lock, like one on an external display")
+    func closureWithoutLock() {
+        let events: [Event] = [.lid(isClosed: true), .lid(isClosed: false), .screen(isLocked: true), .screen(isLocked: false)]
+        #expect(logged(events).isEmpty)
+    }
+
+    @Test("closing again before unlocking still logs the one unlock")
+    func closingAgainWhileLocked() {
+        let events: [Event] = [
+            .lid(isClosed: true), .screen(isLocked: true), .lid(isClosed: false),
+            .lid(isClosed: true), .lid(isClosed: false), .screen(isLocked: false),
+        ]
+        #expect(logged(events) == [.screen(isLocked: true), .screen(isLocked: false)])
+    }
+
+    @Test("leaves out an unlock of a screen locked before the lid closed")
+    func lockedBeforeClosing() {
+        let events: [Event] = [.screen(isLocked: true), .lid(isClosed: true), .lid(isClosed: false), .screen(isLocked: false)]
+        #expect(logged(events).isEmpty)
+    }
+}

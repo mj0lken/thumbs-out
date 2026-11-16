@@ -15,12 +15,15 @@ enum DiagnosticsCollector {
         homeDirectory: NSHomeDirectory(), userName: NSUserName(), fullName: NSFullUserName(), hostName: MacFacts.hostName()
     )
     private nonisolated static let logLimit = 50
+    /// About eight lid closures: each logs its closing, the lock call, the screen locking, the opening
+    /// and the unlock.
+    private nonisolated static let lidLogLimit = 40
 
     static func collect(from controller: AwakeController) async -> Result {
         await controller.lid.refreshSetupStatus()
         async let lockDelay = ScreenLockDelayReader.read()
-        let (log, crashes, mac) = await Task.detached(priority: .userInitiated) {
-            (AppLog.recentLines(limit: logLimit), CrashReport.find(), MacFacts.read())
+        let (lines, crashes, mac) = await Task.detached(priority: .userInitiated) {
+            (AppLog.recentLines(limit: logLimit, lidLimit: lidLogLimit), CrashReport.find(), MacFacts.read())
         }.value
         let settings = AppSettings.load()
         let report = IssueReport(
@@ -32,7 +35,8 @@ enum DiagnosticsCollector {
                 settingsSection(settings),
                 agentsSection(controller, watched: settings.watchedAgents),
             ],
-            log: log
+            log: lines.log,
+            lidLog: lines.lid
         )
         return Result(report: report, crashReports: crashes)
     }

@@ -88,3 +88,31 @@ public enum LidLockState: Sendable, Equatable {
         return self == .unknown || self == .closedHandled || locked ? .closedHandled : .closed
     }
 }
+
+/// Which screen locks and unlocks go in the log: only a lock while the lid is closed, and the unlock
+/// that ends it. Others, like locking by hand or the screen saver, would put the user's day in a
+/// public problem report.
+public enum LidLockCycle: Sendable, Equatable {
+    case idle
+    /// The lid closed, and the screen hasn't locked since.
+    case lidClosed
+    /// The screen locked while the lid was closed: its unlock is logged too.
+    case locked
+
+    public func lidMoved(isClosed: Bool) -> LidLockCycle {
+        switch (self, isClosed) {
+        case (.idle, true): .lidClosed
+        case (.lidClosed, false): .idle
+        default: self
+        }
+    }
+
+    /// The state after the screen locks or unlocks, and whether to log it.
+    public func screenChanged(isLocked: Bool) -> (next: LidLockCycle, logs: Bool) {
+        switch (self, isLocked) {
+        case (.lidClosed, true): (.locked, true)
+        case (.locked, false): (.idle, true)
+        default: (self, false)
+        }
+    }
+}

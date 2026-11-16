@@ -320,15 +320,21 @@ struct DiagnosticsPreview: View {
                     }
                 }
             }
-            if !report.log.isEmpty {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Log (this run)").font(.sectionLabel).foregroundStyle(.secondary)
-                    Text(report.log.joined(separator: "\n"))
-                        .font(.caption2.monospaced())
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
+            logBlock("Lid and lock (this run)", report.lidLog)
+            logBlock("Log (this run)", report.log)
         }
         .textSelection(.enabled)
+    }
+
+    @ViewBuilder
+    private func logBlock(_ title: String, _ lines: [String]) -> some View {
+        if !lines.isEmpty {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title).font(.sectionLabel).foregroundStyle(.secondary)
+                Text(lines.joined(separator: "\n"))
+                    .font(.caption2.monospaced())
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }

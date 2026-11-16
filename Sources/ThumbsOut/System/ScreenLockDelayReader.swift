@@ -5,7 +5,7 @@ import ThumbsOutCore
 /// Reads macOS's password delay. Read only: changing it needs the user's password, so thumbs-out
 /// only points them at Lock Screen settings.
 enum ScreenLockDelayReader {
-    private static let log = Logger(subsystem: "com.mj0lken.thumbs-out", category: "lock")
+    private static let log = Logger(subsystem: "com.mj0lken.thumbs-out", category: AppLog.lockCategory)
 
     /// Nil when sysadminctl fails or prints something unrecognised.
     static func read() async -> ScreenLockDelay? {

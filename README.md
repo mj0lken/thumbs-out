@@ -169,11 +169,19 @@ about two poll intervals (the Mac slept anyway) aren't counted. Daily totals are
 
 ## Updates
 
-Once a day thumbs-out asks GitHub's API for the latest release (one anonymous request to
-`api.github.com`; nothing about you or your Mac is sent). When there's a newer version, the top of
-the menu panel says so: Homebrew installs get `brew upgrade --cask thumbs-out` to copy, others a
-link to the release page. Nothing is downloaded or installed automatically. Turn the check off, or
-run it now, in Settings › **Updates**.
+Every 30 minutes (and on wake) thumbs-out asks GitHub's API for the latest release using conditional
+`ETag` requests (anonymous requests to `api.github.com`; nothing about you or your Mac is sent).
+When there's a newer version, a banner appears at the top of the menu panel (and in Settings ›
+**Updates**):
+
+- **Writable installs (direct downloads and Homebrew)**: click **Update** to download the release
+  archive, verify its SHA-256 checksum and `codesign` signature, swap the app bundle in place, and
+  restart automatically (with rollback if anything goes wrong). Nothing is downloaded or installed
+  until you click **Update**.
+- **Read-only Homebrew installs**: shows `brew upgrade --cask thumbs-out` to copy.
+- **Read-only or translocated copies**: falls back to a **Download** link to the GitHub release page.
+
+Turn automatic checks off, or run one now, in Settings › **Updates**.
 
 ## Build and run
 
@@ -188,12 +196,14 @@ swift build && .build/debug/ThumbsOut --render-snapshots /tmp/snaps   # PNGs of 
 .build/debug/ThumbsOut --render-site docs/images   # tour panels, app icon, social preview (debug only)
 ```
 
-Cutting a release (maintainers): `scripts/release.sh 1.2.0 --dry-run` runs the tests, builds and
-zips the app and writes the release notes without publishing anything. Without `--dry-run` it also
-publishes the GitHub release (as a draft first, made public once the uploaded zip checks out) and
-updates the Homebrew cask in `../homebrew-tap` (or `TAP_DIR`). It commits nothing: `main` only
-changes through pull requests, and the version comes from the release tag, which `build-app.sh`
-writes into the app (local builds get the latest tag).
+Cutting a release (maintainers): `scripts/release.sh 1.4.0 --dry-run` runs the tests, builds and
+zips the app and previews the release notes without tagging or publishing anything. Without
+`--dry-run` it pushes tag `v1.4.0` so GitHub Actions (`.github/workflows/release.yml`) builds,
+signs (or notarizes if secrets are set), publishes the release with `.zip.sha256`, and bumps the
+Homebrew cask in `mj0lken/homebrew-tap` (using `HOMEBREW_TAP_TOKEN`). Pass `--local` to publish and
+update `../homebrew-tap` directly from your Mac instead. It commits nothing: `main` only changes
+through pull requests, and the version comes from the release tag, which `build-app.sh` writes into
+the app (local builds get the latest tag).
 
 For **Launch at login** to work reliably, install the app to `/Applications` first. macOS may ask
 you to approve it under System Settings › General › Login Items.

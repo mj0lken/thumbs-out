@@ -26,7 +26,7 @@ struct SettingsView: View {
             StatsSection(controller: controller)
             detectionSection
             GeneralSection(showWelcome: showWelcome, reportProblem: reportProblem)
-            UpdatesSection()
+            UpdatesSection(isLidSetupBusy: controller.lid.isBusy)
         }
         .formStyle(.grouped)
         .tint(Theme.working)

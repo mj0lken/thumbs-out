@@ -16,7 +16,8 @@ struct ThumbsOutApp: App {
         } label: {
             Image(nsImage: MenuBarGlyph.image(
                 for: appDelegate.controller.decision,
-                lidSleepDisabled: appDelegate.controller.lidDecision.disablesLidSleep
+                lidSleepDisabled: appDelegate.controller.lidDecision.disablesLidSleep,
+                hasAvailableUpdate: appDelegate.updates.availableUpdate != nil
             ))
         }
         .menuBarExtraStyle(.window)

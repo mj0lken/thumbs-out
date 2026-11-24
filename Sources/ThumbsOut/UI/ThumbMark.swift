@@ -70,21 +70,32 @@ struct ThumbBadge: View {
     }
 }
 
-/// Template images for the menu bar: an outline while the Mac may sleep, filled while it's kept
-/// awake, and a small dot when lid-closed mode is holding it awake.
+/// Menu bar icons: an outline while the Mac may sleep, filled while it's kept awake, a monochrome
+/// dot when lid-closed mode is holding it awake, and a green dot when an update is available.
 @MainActor
 enum MenuBarGlyph {
     private static var cache: [String: NSImage] = [:]
+    private static let updateDotColor = NSColor(red: 0.204, green: 0.878, blue: 0.498, alpha: 1)
 
-    static func image(for decision: AwakeDecision, lidSleepDisabled: Bool) -> NSImage {
+    static func image(
+        for decision: AwakeDecision,
+        lidSleepDisabled: Bool,
+        hasAvailableUpdate: Bool = false
+    ) -> NSImage {
         let filled = decision.keepsAwake
-        let key = "\(filled)-\(lidSleepDisabled)"
+        let key = "\(filled)-\(lidSleepDisabled)-\(hasAvailableUpdate)"
         if let cached = cache[key] { return cached }
 
         let size = NSSize(width: 18, height: 18)
         let image = NSImage(size: size, flipped: true) { _ in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
             let transform = ThumbMark.transform(into: CGRect(origin: .zero, size: size), fraction: 0.86)
+            if hasAvailableUpdate {
+                // Non-template image so the update dot keeps its brand green; resolve the thumb's
+                // ink against the menu bar's current appearance (light or dark).
+                NSColor.labelColor.setFill()
+                NSColor.labelColor.setStroke()
+            }
             if filled {
                 // Cuff and hand are separate shapes, so the gap between them stays visible.
                 context.addPath(ThumbMark.cuff.applying(transform).cgPath)
@@ -97,13 +108,22 @@ enum MenuBarGlyph {
                 context.strokePath()
             }
             if lidSleepDisabled {
-                // The thumb leaves the top-right corner empty; the dot sits there.
-                context.fillEllipse(in: CGRect(x: 13, y: 1, width: 4.5, height: 4.5))
+                // Normally sits in the empty top-right corner; shifts to top-left while the update
+                // badge claims top-right so neither indicator hides the other.
+                let rect = hasAvailableUpdate
+                    ? CGRect(x: 1, y: 1, width: 4.5, height: 4.5)
+                    : CGRect(x: 13, y: 1, width: 4.5, height: 4.5)
+                context.fillEllipse(in: rect)
+            }
+            if hasAvailableUpdate {
+                Self.updateDotColor.setFill()
+                context.fillEllipse(in: CGRect(x: 12.5, y: 0.5, width: 5, height: 5))
             }
             return true
         }
-        image.isTemplate = true
-        image.accessibilityDescription = filled ? "thumbs-out: keeping your Mac awake" : "thumbs-out: sleep allowed"
+        image.isTemplate = !hasAvailableUpdate
+        let base = filled ? "thumbs-out: keeping your Mac awake" : "thumbs-out: sleep allowed"
+        image.accessibilityDescription = hasAvailableUpdate ? "\(base), update available" : base
         cache[key] = image
         return image
     }

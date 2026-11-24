@@ -56,9 +56,19 @@ struct StatusDot: View {
                     .frame(width: 8, height: 8)
                     .scaleEffect(isPulsing ? 2.2 : 1)
                     .opacity(isPulsing ? 0 : 1)
-                    .onAppear {
-                        withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) { isPulsing = true }
+                    .animation(
+                        isPulsing ? .easeOut(duration: 1.4).repeatForever(autoreverses: false) : nil,
+                        value: isPulsing
+                    )
+                    // Scoped animation + async start: calling `withAnimation(.repeatForever)` inside
+                    // `onAppear` leaks the repeating transaction animation into the MenuBarExtra
+                    // window's Liquid Glass layout on macOS 26.
+                    .task {
+                        isPulsing = false
+                        await Task.yield()
+                        isPulsing = true
                     }
+                    .onDisappear { isPulsing = false }
             }
             if status.isFound, isWatched {
                 Circle().fill(Theme.color(for: status)).frame(width: 8, height: 8)

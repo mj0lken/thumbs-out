@@ -101,10 +101,12 @@ VERSION="$VERSION" BUILD_NUMBER="$BUILD_NUMBER" ./scripts/build-app.sh
 codesign --verify --strict build/thumbs-out.app
 [[ "$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" build/thumbs-out.app/Contents/Info.plist)" == "$VERSION" ]] \
   || fail "the built app doesn't say $VERSION"
-rm -f "$ZIP"
+rm -f "$ZIP" "$ZIP.sha256"
 ditto -c -k --sequesterRsrc --keepParent build/thumbs-out.app "$ZIP"
 SHA=$(shasum -a 256 "$ZIP" | cut -d' ' -f1)
 echo "$ZIP  $SHA"
+# The in-app updater checks the download against this (and against GitHub's own asset digest).
+echo "$SHA  $(basename "$ZIP")" > "$ZIP.sha256"
 
 step "Preparing the Homebrew cask"
 mkdir -p "$WORK/Casks"
@@ -137,7 +139,7 @@ else
 
 **Requirements:** Apple Silicon Mac, macOS 15 or later.
 
-**Install or update:** \`brew install --cask mj0lken/tap/thumbs-out\` (or \`brew upgrade --cask thumbs-out\`), or unzip, drag **thumbs-out.app** to Applications and open it. The app isn't signed with a paid Apple Developer ID yet, so the first launch of a new download is blocked: click **Done**, then go to **System Settings › Privacy & Security** and click **Open Anyway**.
+**Install or update:** Already running thumbs-out? Click **Update** in the menu bar banner or Settings › Updates. Or use Homebrew (\`brew install --cask mj0lken/tap/thumbs-out\` / \`brew upgrade --cask thumbs-out\`), or unzip, drag **thumbs-out.app** to Applications and open it. The app isn't signed with a paid Apple Developer ID yet, so the first launch of a new manual download is blocked: click **Done**, then go to **System Settings › Privacy & Security** and click **Open Anyway**.
 
 SHA-256 of \`$(basename "$ZIP")\`: \`$SHA\`
 EOF
@@ -153,18 +155,24 @@ fi
 
 step "Publishing $TAG from ${TARGET:0:7}"
 # A draft has no tag yet; GitHub creates it on the commit above when the release is published.
-gh release create "$TAG" "$ZIP" --repo "$REPO" --draft --target "$TARGET" \
+gh release create "$TAG" "$ZIP" "$ZIP.sha256" --repo "$REPO" --draft --target "$TARGET" \
   --title "thumbs-out $VERSION" --notes-file "$NOTES_PATH"
 DONE="$DONE drafted"
 
 step "Checking the uploaded zip"
-# Drafts aren't reachable by tag, so find the asset through the releases list.
+# Drafts aren't reachable by tag, so find the assets through the releases list.
 ASSET_URL=$(gh api "repos/$REPO/releases?per_page=20" \
   --jq ".[] | select(.tag_name == \"$TAG\") | .assets[] | select(.name == \"$(basename "$ZIP")\") | .url")
 [[ -n "$ASSET_URL" ]] || fail "can't find the uploaded zip on the draft release"
 gh api -H "Accept: application/octet-stream" "$ASSET_URL" > "$WORK/uploaded.zip"
 [[ "$(shasum -a 256 "$WORK/uploaded.zip" | cut -d' ' -f1)" == "$SHA" ]] \
   || fail "the uploaded zip doesn't match the local one"
+SHA_ASSET_URL=$(gh api "repos/$REPO/releases?per_page=20" \
+  --jq ".[] | select(.tag_name == \"$TAG\") | .assets[] | select(.name == \"$(basename "$ZIP").sha256\") | .url")
+[[ -n "$SHA_ASSET_URL" ]] || fail "can't find the uploaded .sha256 on the draft release"
+UPLOADED_SHA=$(gh api -H "Accept: application/octet-stream" "$SHA_ASSET_URL" | awk '{print $1}')
+[[ "$UPLOADED_SHA" == "$SHA" ]] \
+  || fail "the uploaded .sha256 doesn't match $SHA"
 echo "matches $SHA"
 gh release edit "$TAG" --repo "$REPO" --draft=false --latest
 DONE="$DONE published"

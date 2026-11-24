@@ -3,8 +3,8 @@ import Observation
 import os
 import ThumbsOutCore
 
-/// Asks GitHub once a day whether a newer release exists. It only tells; installing is up to the
-/// user (the release page, or `brew upgrade` for Homebrew installs).
+/// Asks GitHub once a day whether a newer release exists. Direct installs can download, verify,
+/// and install in place via `installer`; Homebrew installs keep `brew upgrade`.
 @MainActor
 @Observable
 final class UpdateChecker {
@@ -22,10 +22,22 @@ final class UpdateChecker {
     /// The newest release seen that's newer than this build; kept until a successful check says otherwise.
     private(set) var availableUpdate: LatestRelease?
 
+    let installer = UpdateInstaller()
+
     /// Nil in debug builds, which aren't app bundles: those never check.
-    let currentVersion = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String).flatMap(AppVersion.init)
-    let isHomebrewInstall = ["/opt/homebrew/Caskroom/thumbs-out", "/usr/local/Caskroom/thumbs-out"]
-        .contains { FileManager.default.fileExists(atPath: $0) }
+    let currentVersion: AppVersion?
+    let isHomebrewInstall: Bool
+
+    #if DEBUG
+    private let canSelfUpdateOverride: Bool?
+    #endif
+
+    var canSelfUpdate: Bool {
+        #if DEBUG
+        if let canSelfUpdateOverride { return canSelfUpdateOverride }
+        #endif
+        return UpdateInstaller.canSelfUpdate(isHomebrewInstall: isHomebrewInstall)
+    }
 
     static let homebrewCommand = "brew upgrade --cask thumbs-out"
 
@@ -41,6 +53,13 @@ final class UpdateChecker {
     private static let launchDelay: Duration = .seconds(20)
 
     init() {
+        currentVersion = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String).flatMap(AppVersion.init)
+        isHomebrewInstall = ["/opt/homebrew/Caskroom/thumbs-out", "/usr/local/Caskroom/thumbs-out"]
+            .contains { FileManager.default.fileExists(atPath: $0) }
+        #if DEBUG
+        canSelfUpdateOverride = nil
+        #endif
+
         let defaults = UserDefaults.standard
         lastCheck = defaults.object(forKey: Self.lastCheckKey) as? Date
         // Keep showing a release found earlier, until it's installed or a newer check says otherwise.
@@ -52,7 +71,10 @@ final class UpdateChecker {
 
     #if DEBUG
     /// Snapshots: show a found update without touching the network or the user's defaults.
-    init(previewing release: LatestRelease) {
+    init(previewing release: LatestRelease, canSelfUpdate: Bool = false) {
+        currentVersion = nil
+        isHomebrewInstall = false
+        canSelfUpdateOverride = canSelfUpdate
         availableUpdate = release
     }
     #endif
@@ -74,11 +96,13 @@ final class UpdateChecker {
     }
 
     /// The Settings button: checks now, whatever the schedule and the automatic setting say.
-    func checkNow() async {
-        guard status != .checking else { return }
+    @discardableResult
+    func checkNow() async -> LatestRelease? {
+        guard status != .checking else { return availableUpdate }
+        installer.clearFailure()
         guard let currentVersion else {
             status = .failed("This build has no version number to compare.")
-            return
+            return nil
         }
         status = .checking
         do {
@@ -86,11 +110,29 @@ final class UpdateChecker {
             record(latest, at: Date())
             availableUpdate = UpdateCheck.availableUpdate(current: currentVersion, latest: latest)
             status = availableUpdate == nil ? .upToDate : .idle
+            return availableUpdate
         } catch {
             // Not recorded as a check, so the hourly wake tries again; a release found earlier stays.
             Self.log.error("Update check failed: \(error.localizedDescription, privacy: .public)")
             status = .failed(Self.describe(error))
+            return nil
         }
+    }
+
+    /// Installs the available update, refreshing metadata first if restored from UserDefaults without an asset.
+    func installAvailableUpdate() async {
+        guard !installer.isBusy, status != .checking else { return }
+        var release = availableUpdate
+        if release?.asset == nil {
+            release = await checkNow()
+        }
+        guard let release else {
+            if case .failed(let message) = status {
+                installer.fail("Couldn't fetch update details: \(message)")
+            }
+            return
+        }
+        await installer.install(release, userAgentVersion: currentVersion)
     }
 
     private func checkIfDue() async {

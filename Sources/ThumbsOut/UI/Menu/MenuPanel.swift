@@ -23,8 +23,8 @@ struct MenuPanel: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
-            if let update = updates?.availableUpdate {
-                UpdateBanner(release: update, isHomebrewInstall: updates?.isHomebrewInstall ?? false)
+            if let updates, let update = updates.availableUpdate {
+                UpdateBanner(release: update, updates: updates, isLidSetupBusy: controller.lid.isBusy)
             }
             StatusHeader(controller: controller, isAutoEnabled: $isAutoEnabled)
             StatsStrip(stats: controller.stats, isAwake: controller.decision.keepsAwake)

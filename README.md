@@ -170,10 +170,16 @@ about two poll intervals (the Mac slept anyway) aren't counted. Daily totals are
 ## Updates
 
 Once a day thumbs-out asks GitHub's API for the latest release (one anonymous request to
-`api.github.com`; nothing about you or your Mac is sent). When there's a newer version, the top of
-the menu panel says so: Homebrew installs get `brew upgrade --cask thumbs-out` to copy, others a
-link to the release page. Nothing is downloaded or installed automatically. Turn the check off, or
-run it now, in Settings › **Updates**.
+`api.github.com`; nothing about you or your Mac is sent). When there's a newer version, a banner
+appears at the top of the menu panel (and in Settings › **Updates**):
+
+- **Direct downloads**: click **Update** to download the release archive, verify its SHA-256
+  checksum and `codesign` signature, swap the app bundle in place, and restart automatically (with
+  rollback if anything goes wrong). Nothing is downloaded or installed until you click **Update**.
+- **Homebrew installs**: shows `brew upgrade --cask thumbs-out` to copy so Homebrew stays in sync.
+- **Read-only or translocated copies**: falls back to a **Download** link to the GitHub release page.
+
+Turn the daily check off, or run it now, in Settings › **Updates**.
 
 ## Build and run
 

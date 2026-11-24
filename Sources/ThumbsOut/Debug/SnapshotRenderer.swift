@@ -25,9 +25,12 @@ enum SnapshotRenderer {
             )
             render(SettingsView(controller: controller, showWelcome: {}, reportProblem: {}).frame(width: 520, height: 1500), scheme, directory, "settings-\(suffix)")
             // A newer release found: the banner on the panel and the Updates section in Settings.
-            let update = UpdateChecker(previewing: LatestRelease(
-                version: AppVersion("9.9.0")!, pageURL: URL(string: "https://github.com/mj0lken/thumbs-out/releases/tag/v9.9.0")!
-            ))
+            let update = UpdateChecker(
+                previewing: LatestRelease(
+                    version: AppVersion("9.9.0")!, pageURL: URL(string: "https://github.com/mj0lken/thumbs-out/releases/tag/v9.9.0")!
+                ),
+                canSelfUpdate: true
+            )
             render(
                 MenuPanel(controller: controller, openSettings: {}, reportProblem: {}).environment(update).background(.regularMaterial),
                 scheme, directory, "menu-update-\(suffix)"

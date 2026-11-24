@@ -3,36 +3,93 @@ import SwiftUI
 import ThumbsOutCore
 
 /// Tops the panel while a newer release is out. Homebrew installs get the upgrade command to copy;
-/// others get the release page, with the notes and the download.
+/// direct writable installs get an in-app Update button; others fall back to the release page.
 struct UpdateBanner: View {
     let release: LatestRelease
-    let isHomebrewInstall: Bool
+    let updates: UpdateChecker
+    var isLidSetupBusy = false
     @State private var didCopy = false
 
+    private var installer: UpdateInstaller { updates.installer }
+
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: "arrow.down.circle.fill")
                 .font(.system(size: 20))
                 .foregroundStyle(Theme.working)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Version \(release.version.description) is available").font(.tileTitle)
-                Text(isHomebrewInstall ? UpdateChecker.homebrewCommand : "See what's new and download it")
-                    .font(isHomebrewInstall ? .caption.monospaced() : .caption)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+                subtitle
             }
-            Spacer(minLength: 4)
-            if isHomebrewInstall {
-                Button(didCopy ? "Copied" : "Copy") { copyCommand() }
-                    .help("Copy the Homebrew upgrade command")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 6) {
+                controls
             }
-            Button(isHomebrewInstall ? "Notes" : "Download") {
-                NSWorkspace.shared.open(release.pageURL)
-            }
-            .help("Open the release page on GitHub")
         }
         .controlSize(.small)
         .tile()
+    }
+
+    @ViewBuilder
+    private var subtitle: some View {
+        if updates.isHomebrewInstall {
+            Text(UpdateChecker.homebrewCommand)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+        } else if updates.canSelfUpdate {
+            switch installer.phase {
+            case .idle:
+                Text(isLidSetupBusy ? "Finish lid-closed setup to update" : "Installs and restarts thumbs-out")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .downloading(let fraction):
+                Text(fraction.map { "Downloading… \(Int(($0 * 100).rounded()))%" } ?? "Downloading…")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            case .verifying:
+                Text("Checking the download…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .restarting:
+                Text("Restarting…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .failed(let message):
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        } else {
+            Text("See what's new and download it")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var controls: some View {
+        if updates.isHomebrewInstall {
+            Button(didCopy ? "Copied" : "Copy") { copyCommand() }
+                .help("Copy the Homebrew upgrade command")
+            Button("Notes") { NSWorkspace.shared.open(release.pageURL) }
+                .help("Open the release page on GitHub")
+        } else if updates.canSelfUpdate {
+            if installer.isBusy {
+                ProgressView().controlSize(.small)
+            } else {
+                Button("Notes") { NSWorkspace.shared.open(release.pageURL) }
+                    .help("Open the release page on GitHub")
+                Button("Update") { Task { await updates.installAvailableUpdate() } }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.workingInk)
+                    .disabled(isLidSetupBusy || updates.status == .checking)
+                    .help("Download, verify and install version \(release.version.description)")
+            }
+        } else {
+            Button("Download") { NSWorkspace.shared.open(release.pageURL) }
+                .help("Open the release page on GitHub")
+        }
     }
 
     private func copyCommand() {

@@ -2,12 +2,13 @@ import AppKit
 import SwiftUI
 import ThumbsOutCore
 
-/// Settings › Updates: the daily check, what it last found, and a button to check or update now.
+/// Settings › Updates: periodic checks, what was last found, and one-click in-app updates.
 struct UpdatesSection: View {
     var isLidSetupBusy = false
     /// Absent in snapshots that don't show updates.
     @Environment(UpdateChecker.self) private var updates: UpdateChecker?
     @AppStorage(SettingsKey.checksForUpdates) private var checksAutomatically = true
+    @State private var didCopyHomebrew = false
 
     var body: some View {
         if let updates {
@@ -25,6 +26,9 @@ struct UpdatesSection: View {
                                 .buttonStyle(.borderedProminent)
                                 .tint(Theme.workingInk)
                                 .disabled(isLidSetupBusy || updates.status == .checking)
+                        } else if updates.isHomebrewInstall {
+                            Button(didCopyHomebrew ? "Copied" : "Copy Command") { copyHomebrewCommand() }
+                            Button("Notes") { NSWorkspace.shared.open(release.pageURL) }
                         } else {
                             Button("Download…") { NSWorkspace.shared.open(release.pageURL) }
                         }
@@ -35,9 +39,19 @@ struct UpdatesSection: View {
             } header: {
                 Text("Updates")
             } footer: {
-                Text("Once a day, thumbs-out asks GitHub for the latest release. Nothing is downloaded or installed until you click Update. Installed with Homebrew? Update with \(UpdateChecker.homebrewCommand).")
+                Text("thumbs-out checks GitHub every 30 minutes and on wake. Nothing is downloaded or installed until you click Update. Homebrew users can update in-app or with \(UpdateChecker.homebrewCommand).")
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private func copyHomebrewCommand() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(UpdateChecker.homebrewCommand, forType: .string)
+        didCopyHomebrew = true
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            didCopyHomebrew = false
         }
     }
 

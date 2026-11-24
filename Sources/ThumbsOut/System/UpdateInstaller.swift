@@ -28,12 +28,11 @@ final class UpdateInstaller {
         }
     }
 
-    static func canSelfUpdate(isHomebrewInstall: Bool) -> Bool {
+    static func canSelfUpdate() -> Bool {
         let bundleURL = Bundle.main.bundleURL
         let parentURL = bundleURL.deletingLastPathComponent()
         let fm = FileManager.default
         return UpdateCheck.canSelfUpdate(
-            isHomebrewInstall: isHomebrewInstall,
             bundlePath: bundleURL.path,
             bundleIdentifier: Bundle.main.bundleIdentifier,
             expectedBundleID: expectedBundleID,
@@ -100,7 +99,7 @@ final class UpdateInstaller {
             let appURL = unpackDir.appendingPathComponent("thumbs-out.app")
             try Self.validateAppBundle(at: appURL, expectedVersion: release.version)
 
-            let codesign = await CommandRunner.run("/usr/bin/codesign", ["--verify", "--strict", appURL.path])
+            let codesign = await CommandRunner.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", appURL.path])
             guard codesign.succeeded else {
                 throw InstallError.invalidSignature(codesign.errorOutput)
             }
@@ -114,8 +113,9 @@ final class UpdateInstaller {
             try UpdateCheck.installScript().write(to: scriptURL, atomically: true, encoding: .utf8)
 
             let helper = Process()
-            helper.executableURL = URL(fileURLWithPath: "/bin/bash")
+            helper.executableURL = URL(fileURLWithPath: "/usr/bin/nohup")
             helper.arguments = [
+                "/bin/bash",
                 scriptURL.path,
                 String(ProcessInfo.processInfo.processIdentifier),
                 appURL.path,

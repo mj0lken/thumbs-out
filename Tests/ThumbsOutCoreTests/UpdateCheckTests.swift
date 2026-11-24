@@ -38,9 +38,9 @@ struct UpdateCheckTests {
         #expect(UpdateCheck.isDue(lastCheck: nil, now: now))
     }
 
-    @Test("then once a day")
-    func daily() {
-        #expect(!UpdateCheck.isDue(lastCheck: now.addingTimeInterval(-3600), now: now))
+    @Test("then every 30 minutes")
+    func periodic() {
+        #expect(!UpdateCheck.isDue(lastCheck: now.addingTimeInterval(-600), now: now))
         #expect(UpdateCheck.isDue(lastCheck: now.addingTimeInterval(-UpdateCheck.interval), now: now))
     }
 
@@ -174,41 +174,79 @@ struct SelfUpdateTests {
         let appPath = "/Applications/thumbs-out.app"
 
         #expect(UpdateCheck.canSelfUpdate(
-            isHomebrewInstall: false, bundlePath: appPath, bundleIdentifier: bundleID,
-            expectedBundleID: bundleID, isParentWritable: true, isBundleWritable: true
-        ))
-        // Homebrew installs stay managed by Homebrew.
-        #expect(!UpdateCheck.canSelfUpdate(
-            isHomebrewInstall: true, bundlePath: appPath, bundleIdentifier: bundleID,
+            bundlePath: appPath, bundleIdentifier: bundleID,
             expectedBundleID: bundleID, isParentWritable: true, isBundleWritable: true
         ))
         // Non-.app bundles (e.g. `swift run` debug binaries).
         #expect(!UpdateCheck.canSelfUpdate(
-            isHomebrewInstall: false, bundlePath: "/Users/dev/thumbs-out/.build/debug", bundleIdentifier: bundleID,
+            bundlePath: "/Users/dev/thumbs-out/.build/debug", bundleIdentifier: bundleID,
             expectedBundleID: bundleID, isParentWritable: true, isBundleWritable: true
         ))
         // Mismatched or missing bundle identifier.
         #expect(!UpdateCheck.canSelfUpdate(
-            isHomebrewInstall: false, bundlePath: appPath, bundleIdentifier: "com.example.other",
+            bundlePath: appPath, bundleIdentifier: "com.example.other",
             expectedBundleID: bundleID, isParentWritable: true, isBundleWritable: true
         ))
         #expect(!UpdateCheck.canSelfUpdate(
-            isHomebrewInstall: false, bundlePath: appPath, bundleIdentifier: nil,
+            bundlePath: appPath, bundleIdentifier: nil,
             expectedBundleID: bundleID, isParentWritable: true, isBundleWritable: true
         ))
         // AppTranslocation paths are read-only mounts.
         #expect(!UpdateCheck.canSelfUpdate(
-            isHomebrewInstall: false, bundlePath: "/private/var/folders/xx/AppTranslocation/UUID/d/thumbs-out.app",
+            bundlePath: "/private/var/folders/xx/AppTranslocation/UUID/d/thumbs-out.app",
             bundleIdentifier: bundleID, expectedBundleID: bundleID, isParentWritable: true, isBundleWritable: true
         ))
         // Non-writable parent directory or bundle.
         #expect(!UpdateCheck.canSelfUpdate(
-            isHomebrewInstall: false, bundlePath: appPath, bundleIdentifier: bundleID,
+            bundlePath: appPath, bundleIdentifier: bundleID,
             expectedBundleID: bundleID, isParentWritable: false, isBundleWritable: true
         ))
         #expect(!UpdateCheck.canSelfUpdate(
-            isHomebrewInstall: false, bundlePath: appPath, bundleIdentifier: bundleID,
+            bundlePath: appPath, bundleIdentifier: bundleID,
             expectedBundleID: bundleID, isParentWritable: true, isBundleWritable: false
+        ))
+    }
+
+    @Test("detects Homebrew installs by bundle location rather than leftover Caskroom dirs")
+    func detectsHomebrewInstall() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("thumbs-out-brew-test-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fm.removeItem(at: root) }
+
+        let appsDir = root.appendingPathComponent("Applications", isDirectory: true)
+        let caskroom = root.appendingPathComponent("Caskroom/thumbs-out", isDirectory: true)
+        let localBuild = root.appendingPathComponent("build", isDirectory: true)
+        try fm.createDirectory(at: appsDir, withIntermediateDirectories: true)
+        try fm.createDirectory(at: caskroom.appendingPathComponent(".metadata"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: localBuild, withIntermediateDirectories: true)
+
+        let installedApp = appsDir.appendingPathComponent("thumbs-out.app", isDirectory: true)
+        let caskroomApp = caskroom.appendingPathComponent("1.3.0/thumbs-out.app", isDirectory: true)
+        let localApp = localBuild.appendingPathComponent("thumbs-out.app", isDirectory: true)
+
+        // Installed in Applications with Caskroom .metadata present -> Homebrew.
+        #expect(UpdateCheck.detectHomebrewInstall(
+            bundleURL: installedApp,
+            caskroomPaths: [caskroom.path],
+            applicationsDirs: [appsDir.path]
+        ))
+        // Launched directly from inside Caskroom -> Homebrew.
+        #expect(UpdateCheck.detectHomebrewInstall(
+            bundleURL: caskroomApp,
+            caskroomPaths: [caskroom.path],
+            applicationsDirs: [appsDir.path]
+        ))
+        // Local build copy is NOT Homebrew even when Caskroom exists on disk.
+        #expect(!UpdateCheck.detectHomebrewInstall(
+            bundleURL: localApp,
+            caskroomPaths: [caskroom.path],
+            applicationsDirs: [appsDir.path]
+        ))
+        // Without a Caskroom directory, /Applications install is NOT Homebrew.
+        #expect(!UpdateCheck.detectHomebrewInstall(
+            bundleURL: installedApp,
+            caskroomPaths: [root.appendingPathComponent("Caskroom/missing").path],
+            applicationsDirs: [appsDir.path]
         ))
     }
 
@@ -222,13 +260,14 @@ struct SelfUpdateTests {
         #expect(digest == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
     }
 
-    @Test("install script waits on PID, guards rollback on backup existence, and uses ditto and open")
+    @Test("install script ignores HUP, waits on PID, guards rollback on backup existence, and uses ditto and open")
     func installScriptSanity() {
         let script = UpdateCheck.installScript()
         #expect(script.hasPrefix("#!/usr/bin/env bash"))
+        #expect(script.contains("trap '' HUP"))
         #expect(script.contains(#"kill -0 "$PID""#))
         #expect(script.contains(#"if [[ -e "$BACKUP" ]]; then"#))
-        #expect(script.contains(#"ditto "$NEW_APP" "$TARGET_APP""#))
-        #expect(script.contains(#"open "$TARGET_APP""#))
+        #expect(script.contains(#"/usr/bin/ditto "$NEW_APP" "$TARGET_APP""#))
+        #expect(script.contains(#"/usr/bin/open "$TARGET_APP""#))
     }
 }

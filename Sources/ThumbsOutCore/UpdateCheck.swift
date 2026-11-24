@@ -146,7 +146,7 @@ public struct LatestRelease: Sendable, Equatable, Decodable {
 /// When to look for a newer release, whether one is newer than what's running, and the pure
 /// checks behind in-app self-updates.
 public enum UpdateCheck {
-    public static let interval: TimeInterval = 24 * 60 * 60
+    public static let interval: TimeInterval = 30 * 60
 
     public static func isDue(lastCheck: Date?, now: Date, interval: TimeInterval = interval) -> Bool {
         guard let lastCheck, lastCheck <= now else { return true }
@@ -157,6 +157,11 @@ public enum UpdateCheck {
     public static func availableUpdate(current: AppVersion?, latest: LatestRelease?) -> LatestRelease? {
         guard let current, let latest, latest.version > current else { return nil }
         return latest
+    }
+
+    /// Validates a 64-character lowercase/uppercase hex SHA-256 string.
+    public static func isValidSHA256(_ value: String) -> Bool {
+        isHexSHA256(value[...])
     }
 
     /// Validates a GitHub asset digest of the form `"sha256:<64 hex chars>"`.
@@ -176,18 +181,61 @@ public enum UpdateCheck {
         return token.lowercased()
     }
 
-    /// Only direct, writable, non-translocated `.app` bundles with the expected bundle ID can swap
-    /// themselves in place; Homebrew installs stay managed by Homebrew.
+    /// Detects whether the running app bundle is managed by Homebrew Cask rather than matching
+    /// any leftover Caskroom directory on disk (e.g. when running a local `build/thumbs-out.app`).
+    public static func detectHomebrewInstall(
+        bundleURL: URL,
+        caskroomPaths: [String] = ["/opt/homebrew/Caskroom/thumbs-out", "/usr/local/Caskroom/thumbs-out"],
+        applicationsDirs: [String] = ["/Applications", (NSHomeDirectory() as NSString).appendingPathComponent("Applications")],
+        fileManager: FileManager = .default
+    ) -> Bool {
+        let standardized = bundleURL.resolvingSymlinksInPath().standardizedFileURL
+        guard standardized.pathExtension == "app" else { return false }
+
+        let parentPath = standardized.deletingLastPathComponent().standardizedFileURL.path
+        let isInApplicationsDir = applicationsDirs.contains { appDir in
+            parentPath == URL(fileURLWithPath: appDir).resolvingSymlinksInPath().standardizedFileURL.path
+        }
+
+        for caskroom in caskroomPaths {
+            let caskroomURL = URL(fileURLWithPath: caskroom).resolvingSymlinksInPath().standardizedFileURL
+            guard fileManager.fileExists(atPath: caskroomURL.path) else { continue }
+
+            // Direct launch from inside Caskroom
+            if standardized.path.hasPrefix(caskroomURL.path + "/") {
+                return true
+            }
+
+            // Standard Homebrew cask installs thumbs-out.app to /Applications and keeps Caskroom metadata
+            if isInApplicationsDir {
+                let metadataPath = caskroomURL.appendingPathComponent(".metadata").path
+                if fileManager.fileExists(atPath: metadataPath) {
+                    return true
+                }
+                if let entries = try? fileManager.contentsOfDirectory(at: caskroomURL, includingPropertiesForKeys: nil) {
+                    for entry in entries where !entry.lastPathComponent.hasPrefix(".") {
+                        let candidate = entry.appendingPathComponent(standardized.lastPathComponent)
+                        if fileManager.fileExists(atPath: candidate.path),
+                           candidate.resolvingSymlinksInPath().standardizedFileURL == standardized {
+                            return true
+                        }
+                    }
+                }
+            }
+        }
+        return false
+    }
+
+    /// Any writable, non-translocated `.app` bundle with the expected bundle ID can swap itself in
+    /// place (including Homebrew's `/Applications/thumbs-out.app`, paired with `auto_updates true`).
     public static func canSelfUpdate(
-        isHomebrewInstall: Bool,
         bundlePath: String,
         bundleIdentifier: String?,
         expectedBundleID: String,
         isParentWritable: Bool,
         isBundleWritable: Bool
     ) -> Bool {
-        guard !isHomebrewInstall,
-              bundlePath.hasSuffix(".app"),
+        guard bundlePath.hasSuffix(".app"),
               bundleIdentifier == expectedBundleID,
               !bundlePath.contains("/AppTranslocation/"),
               isParentWritable,
@@ -214,6 +262,7 @@ public enum UpdateCheck {
         """
         #!/usr/bin/env bash
         set -euo pipefail
+        trap '' HUP
 
         PID="$1"
         NEW_APP="$2"
@@ -245,9 +294,9 @@ public enum UpdateCheck {
         if [[ -e "$TARGET_APP" ]]; then
           mv "$TARGET_APP" "$BACKUP"
         fi
-        ditto "$NEW_APP" "$TARGET_APP"
+        /usr/bin/ditto "$NEW_APP" "$TARGET_APP"
         rm -rf "$BACKUP"
-        open "$TARGET_APP"
+        /usr/bin/open "$TARGET_APP"
         rm -rf "$WORK_DIR"
         """
     }

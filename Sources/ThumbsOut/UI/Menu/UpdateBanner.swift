@@ -2,8 +2,9 @@ import AppKit
 import SwiftUI
 import ThumbsOutCore
 
-/// Tops the panel while a newer release is out. Homebrew installs get the upgrade command to copy;
-/// direct writable installs get an in-app Update button; others fall back to the release page.
+/// Tops the panel while a newer release is out. Any writable app bundle gets an in-app Update
+/// button (including Homebrew installs paired with `auto_updates true`); read-only Homebrew copies
+/// show the upgrade command to copy, and other read-only/translocated copies link to the release page.
 struct UpdateBanner: View {
     let release: LatestRelease
     let updates: UpdateChecker
@@ -32,12 +33,7 @@ struct UpdateBanner: View {
 
     @ViewBuilder
     private var subtitle: some View {
-        if updates.isHomebrewInstall {
-            Text(UpdateChecker.homebrewCommand)
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-        } else if updates.canSelfUpdate {
+        if updates.canSelfUpdate {
             switch installer.phase {
             case .idle:
                 Text(isLidSetupBusy ? "Finish lid-closed setup to update" : "Installs and restarts thumbs-out")
@@ -60,6 +56,11 @@ struct UpdateBanner: View {
                     .font(.caption)
                     .foregroundStyle(.red)
             }
+        } else if updates.isHomebrewInstall {
+            Text(UpdateChecker.homebrewCommand)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
         } else {
             Text("See what's new and download it")
                 .font(.caption)
@@ -69,12 +70,7 @@ struct UpdateBanner: View {
 
     @ViewBuilder
     private var controls: some View {
-        if updates.isHomebrewInstall {
-            Button(didCopy ? "Copied" : "Copy") { copyCommand() }
-                .help("Copy the Homebrew upgrade command")
-            Button("Notes") { NSWorkspace.shared.open(release.pageURL) }
-                .help("Open the release page on GitHub")
-        } else if updates.canSelfUpdate {
+        if updates.canSelfUpdate {
             if installer.isBusy {
                 ProgressView().controlSize(.small)
             } else {
@@ -86,6 +82,11 @@ struct UpdateBanner: View {
                     .disabled(isLidSetupBusy || updates.status == .checking)
                     .help("Download, verify and install version \(release.version.description)")
             }
+        } else if updates.isHomebrewInstall {
+            Button(didCopy ? "Copied" : "Copy") { copyCommand() }
+                .help("Copy the Homebrew upgrade command")
+            Button("Notes") { NSWorkspace.shared.open(release.pageURL) }
+                .help("Open the release page on GitHub")
         } else {
             Button("Download") { NSWorkspace.shared.open(release.pageURL) }
                 .help("Open the release page on GitHub")
